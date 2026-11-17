@@ -30,6 +30,11 @@ Na tela **Câmeras → Gerenciar câmeras** dá para cadastrar, editar e excluir
 câmera no mapa; **não alteram a conformidade**. API: `GET/POST /api/v1/cameras`,
 `GET/PUT/DELETE /api/v1/cameras/{id}`.
 
+## Prints da plataforma
+![Cameras por setor](docs/img/01_cameras_mapa.png)
+![Gerenciar cameras](docs/img/03_gerenciar_cameras.png)
+![Dashboard](docs/img/04_dashboard.png)
+
 ## Como rodar (Python 3.12)
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -44,7 +49,7 @@ cd epi_tracker/frontend && python3 -m http.server 8020        # terminal 2
 Abra http://127.0.0.1:8020/index.html#cameras
 
 **Com webcam e modelo YOLO:** veja `epi_integration/docs/GUIA_DEMO_WEBCAM.md`.
-O modelo (`best.pt`) não está no repositório por causa do tamanho.
+O modelo (`best.pt`) não está no repositório; veja [docs/MODELO.md](docs/MODELO.md).
 
 ## Testes
 ```bash
