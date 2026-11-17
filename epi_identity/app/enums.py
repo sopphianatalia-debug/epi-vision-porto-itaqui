@@ -1,0 +1,58 @@
+"""Enumerações de domínio compartilhadas por modelos, schemas e serviços."""
+from __future__ import annotations
+
+from enum import Enum
+
+
+class Role(str, Enum):
+    ADMIN = "ADMIN"
+    SECURITY_MANAGER = "SECURITY_MANAGER"
+    OPERATOR = "OPERATOR"
+    AUDITOR = "AUDITOR"
+    VIEWER = "VIEWER"
+
+
+class EmployeeStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+
+
+class BiometricStatus(str, Enum):
+    NOT_ENROLLED = "NOT_ENROLLED"
+    ENROLLED = "ENROLLED"
+    PENDING = "PENDING"
+    REVOKED = "REVOKED"
+
+
+class RecognitionStatus(str, Enum):
+    UNKNOWN = "UNKNOWN"
+    LOW_CONFIDENCE = "LOW_CONFIDENCE"
+    MATCHED = "MATCHED"
+    AMBIGUOUS = "AMBIGUOUS"
+    UNAVAILABLE = "UNAVAILABLE"
+
+
+class ReviewDecision(str, Enum):
+    CONFIRM = "CONFIRM"
+    REJECT = "REJECT"
+    MARK_UNKNOWN = "MARK_UNKNOWN"
+
+
+class TrackState(str, Enum):
+    ACTIVE = "ACTIVE"
+    LOST = "LOST"
+    CLOSED = "CLOSED"
+
+
+class AuditAction(str, Enum):
+    EMPLOYEE_CREATE = "EMPLOYEE_CREATE"
+    EMPLOYEE_UPDATE = "EMPLOYEE_UPDATE"
+    EMPLOYEE_DELETE = "EMPLOYEE_DELETE"
+    BIOMETRIC_ENROLL = "BIOMETRIC_ENROLL"
+    BIOMETRIC_ACCESS = "BIOMETRIC_ACCESS"
+    BIOMETRIC_REVOKE = "BIOMETRIC_REVOKE"
+    RECOGNITION_ATTEMPT = "RECOGNITION_ATTEMPT"
+    RECOGNITION_AMBIGUOUS = "RECOGNITION_AMBIGUOUS"
+    RECOGNITION_FAILURE = "RECOGNITION_FAILURE"
+    REVIEW_DECISION = "REVIEW_DECISION"
+    CONFIG_CHANGE = "CONFIG_CHANGE"

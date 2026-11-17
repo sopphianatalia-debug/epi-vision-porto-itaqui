@@ -1,0 +1,17 @@
+{
+  "name": "epi-tracker-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fase 3.8B - Interface web do Tracker Service",
+  "scripts": {
+    "build": "esbuild src/main.jsx --bundle --outfile=dist/bundle.js --loader:.jsx=jsx --jsx-factory=React.createElement --jsx-fragment=React.Fragment --format=iife --platform=browser",
+    "serve": "python3 -m http.server 8020"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.0"
+  }
+}

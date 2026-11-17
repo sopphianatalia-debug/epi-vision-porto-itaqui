@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: epi
+      POSTGRES_PASSWORD: epi
+      POSTGRES_DB: epi
+    ports:
+      - "5432:5432"
+    volumes:
+      - epi_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U epi"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      EPI_ENVIRONMENT: production
+      EPI_DATABASE_URL: postgresql+asyncpg://epi:epi@db:5432/epi
+      EPI_JWT_SECRET: ${EPI_JWT_SECRET:-troque-me}
+      EPI_BIOMETRIC_ENCRYPTION_KEY: ${EPI_BIOMETRIC_ENCRYPTION_KEY}
+      EPI_FACE_PROVIDER: ${EPI_FACE_PROVIDER:-mock}
+    ports:
+      - "8000:8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+volumes:
+  epi_pgdata:
