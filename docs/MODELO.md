@@ -10,10 +10,10 @@ gerado por treinamento e muda a cada rodada. Aqui está o que ele é e como foi 
   (capacete, colete etc.) e ignora as classes "NO-*": ausência é decidida pelas Regras, não pelo modelo.
 
 ## Como foi treinado
-- **Rodada 1 (cores):** treino no Google Colab (GPU T4) para incluir coletes de outras cores
+- **Rodada 1 (cores):** treino no Google Colab (GPU T4, `docs/notebooks/retreino_epi_vision_cores.ipynb`) para incluir coletes de outras cores
   (inclusive azul). Resultado na validação: capacete mAP50 0,889; colete 0,918; pessoa 0,883;
   média geral 0,725.
-- **Rodada 2 (luvas e botas):** notebook `retreino2_luvas_botas.ipynb` usa o dataset
+- **Rodada 2 (luvas e botas):** notebook `docs/notebooks/retreino2_luvas_botas.ipynb` usa o dataset
   Ultralytics Construction-PPE (CC BY 4.0) para adicionar luvas e botas. **Ainda não foi
   executado**: depende de GPU (a cota gratuita do Colab acabou). As regras de luvas e botas
   já existem e estão testadas; falta apenas o modelo reconhecê-las.
