@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "epi-auth-service"
+version = "1.0.0"
+description = "Login e perfis (operador/supervisor) do EPI Vision"
+requires-python = ">=3.10"
+dependencies = ["fastapi>=0.110", "uvicorn>=0.29", "pydantic>=2.6", "pydantic-settings>=2.2", "PyJWT>=2.8"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "httpx>=0.27"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
