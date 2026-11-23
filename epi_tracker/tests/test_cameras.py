@@ -13,7 +13,8 @@ def test_create_list_get_camera(client):
     r = client.post(f"{PREFIX}/cameras", json=BODY)
     assert r.status_code == 201
     assert r.json() == {"camera_id": "CAM-GS-ENT", "name": "Entrada Granéis Sólidos", "sector": "GRANEIS_SOLIDOS",
-                        "kind": "ENTRADA", "pos": {"x": 14.0, "y": 86.0}, "active": True, "example": False}
+                        "kind": "ENTRADA", "pos": {"x": 14.0, "y": 86.0}, "active": True, "example": False,
+                        "latitude": None, "longitude": None}
     assert [c["camera_id"] for c in client.get(f"{PREFIX}/cameras").json()] == ["CAM-GS-ENT"]
     assert client.get(f"{PREFIX}/cameras/CAM-GS-ENT").json()["kind"] == "ENTRADA"
 
@@ -108,3 +109,23 @@ def test_no_file_configured_keeps_memory_only(tmp_path):
     s = _service("")                                  # vazio = só memória
     s.register_camera("C-1", "X")
     assert [c.camera_id for c in s.list_cameras()] == ["C-1"]
+
+
+def test_camera_geo_is_optional_and_persisted(tmp_path):
+    f = tmp_path / "cameras.json"
+    a = _service(f)
+    a.register_camera("C-1", "Sem geo")
+    a.register_camera("C-2", "Com geo", latitude=-2.57, longitude=-44.36)
+    b = _service(f)
+    cams = {c.camera_id: c.to_dict() for c in b.list_cameras()}
+    assert cams["C-1"]["latitude"] is None and cams["C-1"]["longitude"] is None
+    assert cams["C-2"]["latitude"] == -2.57 and cams["C-2"]["longitude"] == -44.36
+    b.update_camera("C-2", "Com geo", latitude=None, longitude=None)
+    assert _service(f).get_camera("C-2").latitude is None
+
+
+def test_old_camera_file_without_geo_still_loads(tmp_path):
+    f = tmp_path / "cameras.json"
+    f.write_text('[{"camera_id": "C-OLD", "name": "Antiga", "sector": "PIER_BORDO", "kind": "ENTRADA", "pos": {"x": 1, "y": 2}, "active": true, "example": false}]')
+    cam = _service(f).get_camera("C-OLD")
+    assert cam.latitude is None and cam.longitude is None and cam.pos_x == 1.0

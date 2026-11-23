@@ -162,7 +162,8 @@ def register_camera(body: CameraIn, svc: TrackerService = Depends(get_service)):
         raise HTTPException(status_code=422, detail="camera_id é obrigatório na criação")
     try:
         cam = svc.register_camera(body.camera_id.strip(), body.name, body.sector, body.kind,
-                                  body.pos["x"], body.pos["y"], body.active, body.example)
+                                  body.pos["x"], body.pos["y"], body.active, body.example,
+                                  body.latitude, body.longitude)
     except CameraAlreadyRegisteredError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return cam.to_dict()
@@ -185,7 +186,8 @@ def get_camera(camera_id: str, svc: TrackerService = Depends(get_service)):
 def update_camera(camera_id: str, body: CameraIn, svc: TrackerService = Depends(get_service)):
     try:
         cam = svc.update_camera(camera_id, body.name, body.sector, body.kind,
-                                body.pos["x"], body.pos["y"], body.active, body.example)
+                                body.pos["x"], body.pos["y"], body.active, body.example,
+                                  body.latitude, body.longitude)
     except CameraNotFoundError as exc:
         raise _not_found(exc) from exc
     return cam.to_dict()

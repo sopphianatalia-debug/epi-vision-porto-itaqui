@@ -202,3 +202,6 @@ interface (nenhuma mexe em lógica de negócio existente):
   faltava só o endpoint).
 - CORS liberado no backend (`app/main.py`) — necessário para o frontend
   (outra origem/porta) conseguir chamar a API.
+
+## Latitude e longitude da câmera
+`latitude` e `longitude` (graus decimais, opcionais) no cadastro de câmeras (`/api/v1/cameras`). Devem vir **juntas** (ou nenhuma) e dentro de -90..90 / -180..180 (422 caso contrário). Câmeras antigas, sem coordenadas, continuam carregando (valem `null`). Servem ao mapa geográfico e não decidem conformidade. A tela *Gerenciar câmeras* tem os dois campos.

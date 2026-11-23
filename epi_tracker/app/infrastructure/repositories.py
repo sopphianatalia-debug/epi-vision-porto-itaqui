@@ -65,6 +65,10 @@ class AreaRepository(InMemoryRepository):
     pass  # area_id fornecido pelo cliente (ex.: "PATIO-02"), sem geracao
 
 
+def _opt_float(v):
+    return None if v is None else float(v)
+
+
 class CameraRepository(InMemoryRepository):
     """camera_id fornecido pelo cliente (ex.: "CAM-ENTRY-02"). Se `path` for dado, o cadastro
     é gravado em JSON a cada mudança (escrita atômica) e relido ao iniciar."""
@@ -85,7 +89,8 @@ class CameraRepository(InMemoryRepository):
                     cam = Camera(camera_id=d["camera_id"], name=d["name"], sector=d.get("sector"),
                                  kind=d.get("kind", "INTERNA"), pos_x=float(pos.get("x", 50)),
                                  pos_y=float(pos.get("y", 50)), active=bool(d.get("active", True)),
-                                 example=bool(d.get("example", False)))
+                                 example=bool(d.get("example", False)),
+                                 latitude=_opt_float(d.get("latitude")), longitude=_opt_float(d.get("longitude")))
                     self._store[cam.camera_id] = cam
             self.loaded_from_file = True
         except (OSError, ValueError, KeyError, TypeError):

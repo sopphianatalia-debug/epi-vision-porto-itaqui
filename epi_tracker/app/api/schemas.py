@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import field_validator, BaseModel, Field
+from pydantic import field_validator, model_validator, BaseModel, Field
 
 from app.domain.enums import PPEType, SafetyCheckStatus, TrackerStatus, TrackerTechnology
 
@@ -90,6 +90,19 @@ class CameraIn(BaseModel):
     pos: dict = {"x": 50.0, "y": 50.0}
     active: bool = True
     example: bool = False
+    latitude: Optional[float] = None    # graus decimais (-90..90); informe junto com a longitude
+    longitude: Optional[float] = None   # graus decimais (-180..180)
+
+    @model_validator(mode="after")
+    def _geo(self):
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("informe latitude e longitude juntas (ou nenhuma)")
+        if self.latitude is not None:
+            if not (-90 <= self.latitude <= 90):
+                raise ValueError("latitude deve estar entre -90 e 90")
+            if not (-180 <= self.longitude <= 180):
+                raise ValueError("longitude deve estar entre -180 e 180")
+        return self
 
     @field_validator("sector")
     @classmethod

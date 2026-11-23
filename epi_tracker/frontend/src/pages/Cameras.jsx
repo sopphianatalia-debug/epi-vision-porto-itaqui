@@ -13,7 +13,7 @@ const STATUS_LABELS = {
 const FRESH_SECONDS = 60; // "visto recentemente" = últimos 60 s
 
 // Cadastro de câmeras (Tracker) e leitura de visão (Fusion) são independentes: uma falha não esconde a outra.
-const toUi = (c) => ({ id: c.camera_id, name: c.name, sector: c.sector, kind: c.kind, pos: c.pos, example: !!c.example, active: c.active !== false });
+const toUi = (c) => ({ id: c.camera_id, name: c.name, sector: c.sector, kind: c.kind, pos: c.pos, example: !!c.example, active: c.active !== false, latitude: c.latitude ?? null, longitude: c.longitude ?? null });
 
 async function fetchCameras() {
   let registered = [], registryError = null;
@@ -244,7 +244,7 @@ function SectorDetail({ sector, cams, healthById, peopleOf, onSelectCamera }) {
 // ---------------------------------------------------------------------------
 // Gerenciar câmeras: cadastrar, editar e excluir sem mexer no código.
 // ---------------------------------------------------------------------------
-const EMPTY_FORM = { camera_id: "", name: "", sector: "", kind: "INTERNA", x: 50, y: 50, example: false, active: true };
+const EMPTY_FORM = { camera_id: "", name: "", sector: "", kind: "INTERNA", x: 50, y: 50, latitude: "", longitude: "", example: false, active: true };
 const inputStyle = { padding: "6px 8px", border: "1px solid #cfd4da", borderRadius: 6, fontSize: 13, width: "100%", boxSizing: "border-box" };
 
 function CameraAdmin({ cameras, orphanIds, onChanged }) {
@@ -258,7 +258,7 @@ function CameraAdmin({ cameras, orphanIds, onChanged }) {
   const startEdit = (c) => {
     setEditing(c.id); setMsg(null); setConfirmDel(null);
     setForm({ camera_id: c.id, name: c.name, sector: c.sector || "", kind: c.kind || "INTERNA",
-      x: c.pos?.x ?? 50, y: c.pos?.y ?? 50, example: !!c.example, active: c.active !== false });
+      x: c.pos?.x ?? 50, y: c.pos?.y ?? 50, latitude: c.latitude ?? "", longitude: c.longitude ?? "", example: !!c.example, active: c.active !== false });
   };
   const startCreate = (id = "") => { setEditing(null); setMsg(null); setForm({ ...EMPTY_FORM, camera_id: id }); };
 
@@ -266,7 +266,8 @@ function CameraAdmin({ cameras, orphanIds, onChanged }) {
     e.preventDefault();
     setBusy(true); setMsg(null);
     const body = { camera_id: form.camera_id.trim(), name: form.name, sector: form.sector || null, kind: form.kind,
-      pos: { x: Number(form.x), y: Number(form.y) }, active: form.active, example: form.example };
+      pos: { x: Number(form.x), y: Number(form.y) }, active: form.active, example: form.example,
+      latitude: form.latitude === "" ? null : Number(form.latitude), longitude: form.longitude === "" ? null : Number(form.longitude) };
     try {
       if (editing) await api.updateCamera(editing, body); else await api.createCamera(body);
       const text = editing ? "Câmera atualizada." : "Câmera cadastrada.";
@@ -290,7 +291,7 @@ function CameraAdmin({ cameras, orphanIds, onChanged }) {
   return (
     <Panel title="Gerenciar câmeras">
       <div style={{ fontSize: 12, color: "#57606a", marginBottom: 12 }}>
-        O ID precisa ser o mesmo que a câmera envia (<code>--camera-id</code>). Setor, tipo e posição só descrevem a câmera no mapa; não decidem conformidade.
+        O ID precisa ser o mesmo que a câmera envia (<code>--camera-id</code>). Setor, tipo, posição e coordenadas só descrevem a câmera no mapa; não decidem conformidade. Latitude e longitude (graus decimais) devem ser informadas juntas.
         {orphanIds.length > 0 && <> Câmeras enviando dados sem cadastro: {orphanIds.map((id) => (
           <button key={id} type="button" onClick={() => startCreate(id)} style={{ marginLeft: 6, fontSize: 12, cursor: "pointer" }}>cadastrar {id}</button>
         ))}</>}
@@ -310,6 +311,8 @@ function CameraAdmin({ cameras, orphanIds, onChanged }) {
           </select>))}
         {field("Posição X (%)", <input style={inputStyle} type="number" min="0" max="100" step="1" value={form.x} onChange={(e) => set("x", e.target.value)} />)}
         {field("Posição Y (%)", <input style={inputStyle} type="number" min="0" max="100" step="1" value={form.y} onChange={(e) => set("y", e.target.value)} />)}
+        {field("Latitude (opcional)", <input style={inputStyle} type="number" min="-90" max="90" step="any" placeholder="-2.5700" value={form.latitude} onChange={(e) => set("latitude", e.target.value)} />)}
+        {field("Longitude (opcional)", <input style={inputStyle} type="number" min="-180" max="180" step="any" placeholder="-44.3600" value={form.longitude} onChange={(e) => set("longitude", e.target.value)} />)}
         <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
           <button type="submit" disabled={busy} style={{ padding: "7px 12px", cursor: "pointer" }}>{editing ? "Salvar alterações" : "Cadastrar câmera"}</button>
           {editing && <button type="button" onClick={() => startCreate()} style={{ padding: "7px 12px", cursor: "pointer" }}>Cancelar</button>}
@@ -327,7 +330,7 @@ function CameraAdmin({ cameras, orphanIds, onChanged }) {
             <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderTop: "1px solid #eef0f2", fontSize: 13, gap: 8, flexWrap: "wrap" }}>
               <span>
                 <strong>{c.name}</strong>{c.example && <ExampleBadge />}{!c.active && <span style={{ marginLeft: 6, color: "#8a8f98" }}>(inativa)</span>}
-                <span style={{ color: "#8a8f98" }}> ({c.id}) · {sectorByCode(c.sector)?.name || "sem setor"} · {c.kind === "ENTRADA" ? "entrada" : "interna"}</span>
+                <span style={{ color: "#8a8f98" }}> ({c.id}) · {sectorByCode(c.sector)?.name || "sem setor"} · {c.kind === "ENTRADA" ? "entrada" : "interna"}{c.latitude != null && c.longitude != null ? ` · ${Number(c.latitude).toFixed(5)}, ${Number(c.longitude).toFixed(5)}` : ""}</span>
               </span>
               <span style={{ whiteSpace: "nowrap" }}>
                 <button type="button" onClick={() => startEdit(c)} style={{ marginRight: 6, cursor: "pointer" }}>Editar</button>

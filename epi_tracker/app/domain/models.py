@@ -57,11 +57,14 @@ class Camera:
     pos_y: float = 50.0
     active: bool = True
     example: bool = False             # câmera de exemplo/demonstração (não é câmera real)
+    latitude: Optional[float] = None  # coordenadas reais (graus decimais); None = ainda não informadas
+    longitude: Optional[float] = None
 
     def to_dict(self) -> dict:
         return {
             "camera_id": self.camera_id, "name": self.name, "sector": self.sector, "kind": self.kind,
             "pos": {"x": self.pos_x, "y": self.pos_y}, "active": self.active, "example": self.example,
+            "latitude": self.latitude, "longitude": self.longitude,
         }
 
 

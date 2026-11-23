@@ -238,3 +238,16 @@ def test_events_endpoint_returns_history_and_respects_limit(client):
     limited = client.get(f"{PREFIX}/events", params={"limit": 1}).json()
     assert len(limited) == 1
     assert limited[0] == events[-1]
+
+
+def test_camera_geo_validation_over_http(client):
+    base = {"camera_id": "CAM-GEO", "name": "Geo", "sector": "PIER_BORDO", "kind": "INTERNA"}
+    r = client.post("/api/v1/cameras", json={**base, "latitude": -2.57, "longitude": -44.36})
+    assert r.status_code == 201 and r.json()["latitude"] == -2.57 and r.json()["longitude"] == -44.36
+    assert client.post("/api/v1/cameras", json={**base, "camera_id": "G2", "latitude": -2.5}).status_code == 422   # só uma
+    assert client.post("/api/v1/cameras", json={**base, "camera_id": "G3", "latitude": 91, "longitude": 0}).status_code == 422
+    assert client.post("/api/v1/cameras", json={**base, "camera_id": "G4", "latitude": 0, "longitude": 181}).status_code == 422
+    r = client.post("/api/v1/cameras", json={**base, "camera_id": "G5"})
+    assert r.status_code == 201 and r.json()["latitude"] is None
+    r = client.put("/api/v1/cameras/G5", json={**base, "camera_id": "G5", "latitude": -2.6, "longitude": -44.3})
+    assert r.status_code == 200 and r.json()["longitude"] == -44.3

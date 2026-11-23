@@ -198,11 +198,12 @@ class TrackerService:
     # ------------------------------------------------------------------ #
     def register_camera(self, camera_id: str, name: str, sector=None, kind: str = "INTERNA",
                         pos_x: float = 50.0, pos_y: float = 50.0, active: bool = True,
-                        example: bool = False) -> Camera:
+                        example: bool = False, latitude=None, longitude=None) -> Camera:
         if self._cameras.exists(camera_id):
             raise CameraAlreadyRegisteredError(f"Câmera {camera_id} já cadastrada.")
         cam = Camera(camera_id=camera_id, name=name, sector=sector, kind=kind,
-                     pos_x=pos_x, pos_y=pos_y, active=active, example=example)
+                     pos_x=pos_x, pos_y=pos_y, active=active, example=example,
+                     latitude=latitude, longitude=longitude)
         self._cameras.add(camera_id, cam)
         self._cameras.save()
         log_event("CAMERA_REGISTERED", camera_id=camera_id, sector=sector, kind=kind)
@@ -223,10 +224,11 @@ class TrackerService:
 
     def update_camera(self, camera_id: str, name: str, sector=None, kind: str = "INTERNA",
                       pos_x: float = 50.0, pos_y: float = 50.0, active: bool = True,
-                      example: bool = False) -> Camera:
+                      example: bool = False, latitude=None, longitude=None) -> Camera:
         cam = self.get_camera(camera_id)
         cam.name, cam.sector, cam.kind = name, sector, kind
         cam.pos_x, cam.pos_y, cam.active, cam.example = pos_x, pos_y, active, example
+        cam.latitude, cam.longitude = latitude, longitude
         self._cameras.save()
         log_event("CAMERA_UPDATED", camera_id=camera_id, sector=sector, kind=kind)
         return cam
