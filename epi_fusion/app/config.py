@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     # Conflito: diferença mínima de confiança para declarar um vencedor.
     conflict_confidence_margin: float = Field(default=0.15, ge=0.0, le=1.0)
 
+    # Câmera sem observação há mais de N s é considerada OFFLINE (sem sinal) e o WebSocket
+    # /fusion/ws/cameras reavalia a cada `ws_poll_seconds`.
+    camera_stale_seconds: float = Field(default=30.0, gt=0)
+    ws_poll_seconds: float = Field(default=1.0, gt=0)
+
     # Resolver de identidade (extensível na Fase 3.2).
     identity_resolver: str = "employee_id"
 

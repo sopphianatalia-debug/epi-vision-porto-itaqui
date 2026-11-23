@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
+from app.api.ws import router as ws_router
 from app.config import get_settings
 from app.observability import configure_logging
 
@@ -16,6 +17,7 @@ def create_app() -> FastAPI:
     # Em produção, restrinja allow_origins ao endereço real da interface.
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
     app.include_router(router, prefix=settings.api_prefix)
+    app.include_router(ws_router, prefix=settings.api_prefix)
 
     @app.get("/health", tags=["health"])
     def root_health():

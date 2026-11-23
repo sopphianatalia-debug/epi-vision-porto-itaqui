@@ -10,6 +10,7 @@ armazena nenhum dado biométrico.
 from __future__ import annotations
 
 import time
+from datetime import datetime, timezone
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from threading import Lock
@@ -27,6 +28,8 @@ class _CameraAgg:
     confidence_sum: float = 0.0
     confidence_count: int = 0     # nº de observações com confidence informativa
     not_visible: int = 0          # nº de observações com ao menos um EPI NOT_VISIBLE
+    last_seen_mono: Optional[float] = None       # última observação (relógio monotônico)
+    last_seen_at: Optional[datetime] = None      # idem, em UTC, para exibição
 
 
 class FusionMetrics:
@@ -79,6 +82,8 @@ class FusionMetrics:
             # Agregação por câmera (observabilidade)
             agg = self._camera_agg[camera_id]
             agg.observations += 1
+            agg.last_seen_mono = time.monotonic()
+            agg.last_seen_at = datetime.now(timezone.utc)
             if matched and employee_id:
                 agg.matches += 1
             else:
@@ -174,6 +179,26 @@ class FusionMetrics:
                 identity_match_rate, avg_confidence, not_visible_rate, conflict_rate
             ),
         }
+
+    def camera_status(self, stale_seconds: float, now_mono: Optional[float] = None) -> list[dict]:
+        """Estado de sinal por câmera: ONLINE se enviou observação nos últimos `stale_seconds`,
+        senão OFFLINE ("sem sinal"). Só descreve se a câmera está ENVIANDO dados; silêncio não
+        prova nem descarta nenhuma violação e não decide conformidade."""
+        now = time.monotonic() if now_mono is None else now_mono
+        with self._lock:
+            rows = []
+            for cam, agg in self._camera_agg.items():
+                if agg.last_seen_mono is None:
+                    continue
+                age = max(0.0, now - agg.last_seen_mono)
+                rows.append({
+                    "camera_id": cam,
+                    "status": "ONLINE" if age <= stale_seconds else "OFFLINE",
+                    "last_observation_at": agg.last_seen_at.isoformat() if agg.last_seen_at else None,
+                    "seconds_since_last_observation": round(age, 1),
+                })
+        rows.sort(key=lambda r: r["camera_id"])
+        return rows
 
     def camera_health(self) -> list[dict]:
         """Saúde por câmera, ordenada da PIOR para a MELHOR (health_score crescente).

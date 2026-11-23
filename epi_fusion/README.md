@@ -210,3 +210,8 @@ não necessariamente de uma câmera com defeito.
 Ver `docs/architecture.md` para as decisões e o mapeamento de entidades para
 banco. Nenhum módulo existente (1, 2, 3) foi modificado — a fusão é aditiva e se
 integra pelas observações que os módulos já produzem.
+
+## Estado de sinal das câmeras (REST + WebSocket)
+- `GET /api/v1/fusion/cameras/status`: `ONLINE` se a câmera enviou observação nos últimos `FUS_CAMERA_STALE_SECONDS` (padrão 30 s), senão `OFFLINE` (sem sinal). Só lista câmeras que já enviaram algo; "cadastrada e nunca vista" é deduzida pela tela cruzando com o cadastro do Tracker.
+- `ws://localhost:8002/api/v1/fusion/ws/cameras`: ao conectar manda `SNAPSHOT`; depois só `CAMERA_STATUS_CHANGED` (`camera_id`, `status`, `previous_status`, `last_observation_at`) quando o estado muda (reavaliado a cada `FUS_WS_POLL_SECONDS`, padrão 1 s).
+- Descreve só se a câmera está enviando dados. **Não decide conformidade nem abre incidente**; silêncio de câmera nunca é violação.
