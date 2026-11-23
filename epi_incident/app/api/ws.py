@@ -12,9 +12,13 @@ import asyncio
 import threading
 from typing import Optional
 
+from typing import Optional
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.api.deps import get_hub, get_service
+from app.auth import verify_token
+from app.config import get_settings
 
 router = APIRouter()
 
@@ -63,7 +67,11 @@ class WsHub:
 
 
 @router.websocket("/ws/incidents")
-async def incidents_ws(ws: WebSocket):
+async def incidents_ws(ws: WebSocket, token: Optional[str] = None):
+    """Com INC_AUTH_MODE=required, exige ?token=<JWT do epi_auth> (o navegador não manda cabeçalho no WebSocket)."""
+    if get_settings().auth_mode == "required" and (not token or verify_token(token) is None):
+        await ws.close(code=4401)
+        return
     svc = get_service()
     hub = get_hub()
     await ws.accept()

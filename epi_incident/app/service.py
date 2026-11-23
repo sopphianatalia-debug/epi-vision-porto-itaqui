@@ -47,6 +47,10 @@ class InvalidReview(IncidentError):
     pass
 
 
+class ReviewForbidden(IncidentError):
+    pass
+
+
 class IncidentService:
     def __init__(self, settings: Settings, clock: Clock, event_bus: EventBus,
                  repository: IncidentRepository) -> None:
@@ -156,7 +160,8 @@ class IncidentService:
             raise IncidentAlreadyResolved(incident_id)
         return self._resolve(inc)
 
-    def review_incident(self, incident_id: str, decision: str, note: str, reviewer: str) -> Incident:
+    def review_incident(self, incident_id: str, decision: str, note: str, reviewer: str,
+                        role: Optional[str] = None, verified: bool = False) -> Incident:
         """Registra o parecer humano. Exige justificativa e identificação do revisor.
         Não muda OPEN/RESOLVED nem a conformidade. Cada revisão entra na trilha de auditoria."""
         inc = self._repo.get(incident_id)
@@ -172,11 +177,16 @@ class IncidentService:
             raise InvalidReview("a justificativa é obrigatória")
         if not reviewer:
             raise InvalidReview("o revisor é obrigatório")
+        # Operador não sobrescreve o parecer de outra pessoa; supervisor pode.
+        if (verified and role == "OPERADOR" and inc.reviewed_by and inc.reviewed_by != reviewer):
+            raise ReviewForbidden("Só o supervisor pode alterar a revisão feita por outra pessoa.")
         now = self._clock.now()
         inc.review_status = dec.value
         inc.reviewed_by, inc.reviewed_at, inc.review_note = reviewer, now, note
+        inc.reviewed_by_role, inc.reviewer_verified = (role if verified else None), verified
         inc.updated_at = now
         inc.review_history.append({"decision": dec.value, "note": note, "reviewer": reviewer,
+                                   "role": role if verified else None, "verified": verified,
                                    "reviewed_at": now.isoformat()})
         self._repo.persist(inc)
         self._bus.publish(EventType.INCIDENT_REVIEWED, {**self._payload(inc), "reviewer": reviewer})

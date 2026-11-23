@@ -109,6 +109,8 @@ class IncidentOut(BaseModel):
     metadata: dict
     review_status: str = "PENDING"
     reviewed_by: Optional[str] = None
+    reviewed_by_role: Optional[str] = None
+    reviewer_verified: bool = False
     reviewed_at: Optional[str] = None
     review_note: Optional[str] = None
     review_history: list[dict] = []
@@ -118,7 +120,7 @@ class ReviewIn(BaseModel):
     """Parecer humano. Justificativa e revisor são obrigatórios (trilha de auditoria)."""
     decision: str
     note: str
-    reviewer: str
+    reviewer: Optional[str] = None   # só no modo sem login; com login vale o usuário do token
 
 
 class CreateIncidentResponse(IncidentOut):

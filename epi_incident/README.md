@@ -134,3 +134,8 @@ pytest -q                        # 45 testes (unit + cenários + API)
 
 ## WebSocket de eventos
 `ws://localhost:8004/api/v1/ws/incidents`: ao conectar envia `{"type":"SNAPSHOT","incidents":[...abertos]}`; depois cada evento (`INCIDENT_CREATED`, `INCIDENT_UPDATED`, `INCIDENT_RESOLVED`, `INCIDENT_REVIEWED`) como `{"type": "...", ...}`. Só difusão (não decide nada). Cliente lento perde os eventos mais antigos; mantenha uma consulta REST de reserva. Requer o pacote `websockets` (já em `pyproject.toml`).
+
+## Login (INC_AUTH_MODE)
+- `INC_AUTH_MODE=off` (padrão): sem login, como antes; o revisor é o nome digitado e fica marcado `reviewer_verified=false`.
+- `INC_AUTH_MODE=required` + `EPI_JWT_SECRET` (o mesmo do `epi_auth`): `GET /incidents*`, `POST /incidents/{id}/review` e o WebSocket (`?token=`) exigem token. **O revisor é quem está logado** (`reviewed_by`, `reviewed_by_role`, `reviewer_verified=true`); o campo `reviewer` do corpo é ignorado. Operador não sobrescreve a revisão de outra pessoa (403); supervisor pode. Tudo fica em `review_history`.
+- `INC_SERVICE_KEY=...` (opcional): endpoints de máquina (`POST /incidents`, `/incidents/evaluations`, `/incidents/{id}/resolve`) passam a exigir o cabeçalho `X-Service-Key`. Sem a variável, ficam abertos (como antes). Os serviços que chamam o Incident precisam enviar o cabeçalho antes de você ligar isso.

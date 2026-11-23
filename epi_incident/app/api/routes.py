@@ -4,6 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
+from app.auth import current_user, machine_only
 from app.api.deps import get_service
 from app.api.schemas import (
     CreateIncidentResponse,
@@ -20,6 +21,7 @@ from app.service import (
     IncidentNotFound,
     IncidentService,
     InvalidReview,
+    ReviewForbidden,
     InvalidViolation,
 )
 
@@ -31,7 +33,7 @@ def health():
     return {"status": "ok"}
 
 
-@router.post("/incidents", response_model=CreateIncidentResponse, tags=["incidents"])
+@router.post("/incidents", response_model=CreateIncidentResponse, tags=["incidents"], dependencies=[Depends(machine_only)])
 def create_incident(body: ViolationIn, response: Response, svc: IncidentService = Depends(get_service)):
     """Registra uma violação confirmada. Se já houver incidente ABERTO equivalente,
     não cria outro: deduplica (incrementa occurrence_count) e devolve o existente.
@@ -44,7 +46,7 @@ def create_incident(body: ViolationIn, response: Response, svc: IncidentService 
     return {**incident.to_dict(svc.now()), "action": action.value}
 
 
-@router.get("/incidents", response_model=list[IncidentOut], tags=["incidents"])
+@router.get("/incidents", response_model=list[IncidentOut], tags=["incidents"], dependencies=[Depends(current_user)])
 def list_incidents(
     employee_id: Optional[str] = None,
     status: Optional[str] = None,
@@ -57,7 +59,7 @@ def list_incidents(
         employee_id=employee_id, status=status, severity=severity, ppe_type=ppe_type)]
 
 
-@router.get("/incidents/{incident_id}", response_model=IncidentOut, tags=["incidents"])
+@router.get("/incidents/{incident_id}", response_model=IncidentOut, tags=["incidents"], dependencies=[Depends(current_user)])
 def get_incident(incident_id: str, svc: IncidentService = Depends(get_service)):
     inc = svc.get(incident_id)
     if inc is None:
@@ -65,7 +67,7 @@ def get_incident(incident_id: str, svc: IncidentService = Depends(get_service)):
     return inc.to_dict(svc.now())
 
 
-@router.post("/incidents/{incident_id}/resolve", response_model=IncidentOut, tags=["incidents"])
+@router.post("/incidents/{incident_id}/resolve", response_model=IncidentOut, tags=["incidents"], dependencies=[Depends(machine_only)])
 def resolve_incident(incident_id: str, svc: IncidentService = Depends(get_service)):
     try:
         inc = svc.resolve_incident(incident_id)
@@ -77,11 +79,19 @@ def resolve_incident(incident_id: str, svc: IncidentService = Depends(get_servic
 
 
 @router.post("/incidents/{incident_id}/review", response_model=IncidentOut, tags=["incidents"])
-def review_incident(incident_id: str, body: ReviewIn, svc: IncidentService = Depends(get_service)):
+def review_incident(incident_id: str, body: ReviewIn, svc: IncidentService = Depends(get_service),
+                    user: Optional[dict] = Depends(current_user)):
     """Parecer humano (CONFIRMED | DISMISSED | INSUFFICIENT_EVIDENCE) com justificativa e revisor.
     Não altera OPEN/RESOLVED nem a conformidade, que continua sendo decidida pelo Rules Engine."""
+    # Com login, o revisor é quem está autenticado (o campo `reviewer` do corpo é ignorado).
+    if user is not None:
+        reviewer, role, verified = user["username"], user["role"], True
+    else:
+        reviewer, role, verified = body.reviewer or "", None, False
     try:
-        inc = svc.review_incident(incident_id, body.decision, body.note, body.reviewer)
+        inc = svc.review_incident(incident_id, body.decision, body.note, reviewer, role=role, verified=verified)
+    except ReviewForbidden as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
     except IncidentNotFound:
         raise HTTPException(status_code=404, detail="Incidente não encontrado.")
     except InvalidReview as exc:
@@ -89,7 +99,7 @@ def review_incident(incident_id: str, body: ReviewIn, svc: IncidentService = Dep
     return inc.to_dict(svc.now())
 
 
-@router.post("/incidents/evaluations", response_model=list[EvaluationResultItem], tags=["incidents"])
+@router.post("/incidents/evaluations", response_model=list[EvaluationResultItem], tags=["incidents"], dependencies=[Depends(machine_only)])
 def process_evaluation(body: RulesEvaluationIn, svc: IncidentService = Depends(get_service)):
     """FASE 3.5 — integração ponta-a-ponta.
 

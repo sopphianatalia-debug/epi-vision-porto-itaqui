@@ -111,6 +111,8 @@ class Incident:
     metadata: dict = field(default_factory=dict)
     review_status: str = REVIEW_PENDING          # PENDING | CONFIRMED | DISMISSED | INSUFFICIENT_EVIDENCE
     reviewed_by: Optional[str] = None
+    reviewed_by_role: Optional[str] = None       # OPERADOR | SUPERVISOR (só quando o revisor foi autenticado)
+    reviewer_verified: bool = False              # True = identidade vinda do login; False = nome digitado (modo sem login)
     reviewed_at: Optional[datetime] = None
     review_note: Optional[str] = None
     review_history: list[dict] = field(default_factory=list)   # trilha de auditoria (nunca apagada)
@@ -148,6 +150,8 @@ class Incident:
             "metadata": self.metadata,
             "review_status": self.review_status,
             "reviewed_by": self.reviewed_by,
+            "reviewed_by_role": self.reviewed_by_role,
+            "reviewer_verified": self.reviewer_verified,
             "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
             "review_note": self.review_note,
             "review_history": list(self.review_history),

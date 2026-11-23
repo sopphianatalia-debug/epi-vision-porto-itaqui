@@ -32,6 +32,7 @@ def incident_to_record(i: Incident) -> dict:
         "occurrence_count": i.occurrence_count, "resolved_at": i.resolved_at.isoformat() if i.resolved_at else None,
         "source": i.source, "source_cameras": list(i.source_cameras), "metadata": i.metadata,
         "review_status": i.review_status, "reviewed_by": i.reviewed_by,
+        "reviewed_by_role": i.reviewed_by_role, "reviewer_verified": i.reviewer_verified,
         "reviewed_at": i.reviewed_at.isoformat() if i.reviewed_at else None,
         "review_note": i.review_note, "review_history": list(i.review_history),
         "processed_eval_ids": sorted(i._processed_eval_ids),
@@ -48,7 +49,8 @@ def incident_from_record(d: dict) -> Incident:
         occurrence_count=d.get("occurrence_count", 1), resolved_at=_dt(d.get("resolved_at")),
         source=d.get("source", "rules_engine"), source_cameras=list(d.get("source_cameras", [])),
         metadata=dict(d.get("metadata", {})), review_status=d.get("review_status", "PENDING"),
-        reviewed_by=d.get("reviewed_by"), reviewed_at=_dt(d.get("reviewed_at")),
+        reviewed_by=d.get("reviewed_by"), reviewed_by_role=d.get("reviewed_by_role"),
+        reviewer_verified=bool(d.get("reviewer_verified", False)), reviewed_at=_dt(d.get("reviewed_at")),
         review_note=d.get("review_note"), review_history=list(d.get("review_history", [])),
     )
     inc._processed_eval_ids = set(d.get("processed_eval_ids", []))

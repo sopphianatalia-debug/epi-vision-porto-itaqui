@@ -57,3 +57,13 @@ def test_evaluation_idempotency_survives_restart(tmp_path):
     svc2, _c2, _r2 = _svc(db)
     _inc, action = svc2.record_violation(viol(evaluation_id="E1"))
     assert action.value == "NOOP"
+
+
+def test_verified_reviewer_survives_restart(tmp_path):
+    db = tmp_path / "inc.db"
+    svc, _c, repo = _svc(db)
+    inc, _ = svc.record_violation(viol(evaluation_id="E1"))
+    svc.review_incident(inc.incident_id, "CONFIRMED", "visto no vídeo", "bruno", role="OPERADOR", verified=True)
+    repo.close()
+    got = _svc(db)[0].get(inc.incident_id)
+    assert got.reviewed_by == "bruno" and got.reviewed_by_role == "OPERADOR" and got.reviewer_verified is True
