@@ -19,6 +19,7 @@ from app.domain.enums import (
     EventType,
     IncidentStatus,
     OverallStatus,
+    ReviewDecision,
     ViolationType,
 )
 from app.domain.models import EvaluationInput, Incident, ViolationInput, dedup_key
@@ -39,6 +40,10 @@ class IncidentNotFound(IncidentError):
 
 
 class IncidentAlreadyResolved(IncidentError):
+    pass
+
+
+class InvalidReview(IncidentError):
     pass
 
 
@@ -149,6 +154,32 @@ class IncidentService:
             raise IncidentAlreadyResolved(incident_id)
         return self._resolve(inc)
 
+    def review_incident(self, incident_id: str, decision: str, note: str, reviewer: str) -> Incident:
+        """Registra o parecer humano. Exige justificativa e identificação do revisor.
+        Não muda OPEN/RESOLVED nem a conformidade. Cada revisão entra na trilha de auditoria."""
+        inc = self._repo.get(incident_id)
+        if inc is None:
+            raise IncidentNotFound(incident_id)
+        try:
+            dec = ReviewDecision(str(decision).upper())
+        except ValueError:
+            raise InvalidReview(f"decisão inválida: {decision!r}. Use {[d.value for d in ReviewDecision]}")
+        note = (note or "").strip()
+        reviewer = (reviewer or "").strip()
+        if len(note) < 3:
+            raise InvalidReview("a justificativa é obrigatória")
+        if not reviewer:
+            raise InvalidReview("o revisor é obrigatório")
+        now = self._clock.now()
+        inc.review_status = dec.value
+        inc.reviewed_by, inc.reviewed_at, inc.review_note = reviewer, now, note
+        inc.updated_at = now
+        inc.review_history.append({"decision": dec.value, "note": note, "reviewer": reviewer,
+                                   "reviewed_at": now.isoformat()})
+        self._bus.publish(EventType.INCIDENT_REVIEWED, {**self._payload(inc), "reviewer": reviewer})
+        log_event(EventType.INCIDENT_REVIEWED, incident_id=inc.incident_id, decision=dec.value, reviewer=reviewer)
+        return inc
+
     def _resolve(self, inc: Incident) -> Incident:
         now = self._clock.now()
         inc.status = IncidentStatus.RESOLVED
@@ -223,6 +254,7 @@ class IncidentService:
             "employee_id": inc.employee_id,
             "severity": inc.severity.value,
             "status": inc.status.value,
+            "review_status": inc.review_status,
             "ppe_type": inc.ppe_type,
             "reason_code": inc.reason_code,
             "rule_id": inc.rule_id,

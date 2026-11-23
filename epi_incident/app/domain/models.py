@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
-from app.domain.enums import IncidentStatus, OverallStatus, Severity, ViolationType
+from app.domain.enums import REVIEW_PENDING, IncidentStatus, OverallStatus, Severity, ViolationType
 
 
 def dedup_key(employee_id: str, rule_id: str, ppe_type: str, violation_type: str) -> str:
@@ -109,6 +109,11 @@ class Incident:
     source: str = "rules_engine"
     source_cameras: list[str] = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
+    review_status: str = REVIEW_PENDING          # PENDING | CONFIRMED | DISMISSED | INSUFFICIENT_EVIDENCE
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    review_note: Optional[str] = None
+    review_history: list[dict] = field(default_factory=list)   # trilha de auditoria (nunca apagada)
     _processed_eval_ids: set = field(default_factory=set)
 
     @property
@@ -141,4 +146,9 @@ class Incident:
             "source": self.source,
             "source_cameras": list(self.source_cameras),
             "metadata": self.metadata,
+            "review_status": self.review_status,
+            "reviewed_by": self.reviewed_by,
+            "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
+            "review_note": self.review_note,
+            "review_history": list(self.review_history),
         }

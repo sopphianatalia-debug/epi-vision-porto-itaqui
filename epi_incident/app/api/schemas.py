@@ -107,6 +107,18 @@ class IncidentOut(BaseModel):
     source: str
     source_cameras: list[str]
     metadata: dict
+    review_status: str = "PENDING"
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[str] = None
+    review_note: Optional[str] = None
+    review_history: list[dict] = []
+
+
+class ReviewIn(BaseModel):
+    """Parecer humano. Justificativa e revisor são obrigatórios (trilha de auditoria)."""
+    decision: str
+    note: str
+    reviewer: str
 
 
 class CreateIncidentResponse(IncidentOut):

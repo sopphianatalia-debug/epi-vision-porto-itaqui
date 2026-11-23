@@ -78,3 +78,25 @@ def test_invalid_payload_422(client):
     bad = _body(evaluation_id="EG2")
     bad["severity"] = "SUPER_HIGH"
     assert client.post(f"{PREFIX}/incidents", json=bad).status_code == 422
+
+
+def test_review_endpoint_flow(client):
+    inc = client.post(f"{PREFIX}/incidents", json=_body(employee_id="FUNC-REV", evaluation_id="ER1")).json()
+    iid = inc["incident_id"]
+    assert inc["review_status"] == "PENDING"
+    r = client.post(f"{PREFIX}/incidents/{iid}/review",
+                    json={"decision": "CONFIRMED", "note": "Sem capacete.", "reviewer": "op.maria"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["review_status"] == "CONFIRMED" and body["reviewed_by"] == "op.maria"
+    assert body["status"] == "OPEN" and len(body["review_history"]) == 1
+
+
+def test_review_endpoint_errors(client):
+    iid = client.post(f"{PREFIX}/incidents", json=_body(employee_id="FUNC-REV2", evaluation_id="ER2")).json()["incident_id"]
+    assert client.post(f"{PREFIX}/incidents/{iid}/review",
+                       json={"decision": "CONFIRMED", "note": "", "reviewer": "op"}).status_code == 422
+    assert client.post(f"{PREFIX}/incidents/{iid}/review",
+                       json={"decision": "XYZ", "note": "nota", "reviewer": "op"}).status_code == 422
+    assert client.post(f"{PREFIX}/incidents/INC-999999/review",
+                       json={"decision": "CONFIRMED", "note": "nota", "reviewer": "op"}).status_code == 404

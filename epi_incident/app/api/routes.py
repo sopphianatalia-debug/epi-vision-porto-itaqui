@@ -9,6 +9,7 @@ from app.api.schemas import (
     CreateIncidentResponse,
     EvaluationResultItem,
     IncidentOut,
+    ReviewIn,
     RulesEvaluationIn,
     ViolationIn,
 )
@@ -18,6 +19,7 @@ from app.service import (
     IncidentAlreadyResolved,
     IncidentNotFound,
     IncidentService,
+    InvalidReview,
     InvalidViolation,
 )
 
@@ -71,6 +73,19 @@ def resolve_incident(incident_id: str, svc: IncidentService = Depends(get_servic
         raise HTTPException(status_code=404, detail="Incidente não encontrado.")
     except IncidentAlreadyResolved:
         raise HTTPException(status_code=409, detail="Incidente já resolvido.")
+    return inc.to_dict(svc.now())
+
+
+@router.post("/incidents/{incident_id}/review", response_model=IncidentOut, tags=["incidents"])
+def review_incident(incident_id: str, body: ReviewIn, svc: IncidentService = Depends(get_service)):
+    """Parecer humano (CONFIRMED | DISMISSED | INSUFFICIENT_EVIDENCE) com justificativa e revisor.
+    Não altera OPEN/RESOLVED nem a conformidade, que continua sendo decidida pelo Rules Engine."""
+    try:
+        inc = svc.review_incident(incident_id, body.decision, body.note, body.reviewer)
+    except IncidentNotFound:
+        raise HTTPException(status_code=404, detail="Incidente não encontrado.")
+    except InvalidReview as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     return inc.to_dict(svc.now())
 
 

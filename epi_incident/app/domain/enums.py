@@ -17,6 +17,17 @@ class Severity(str, Enum):
     CRITICAL = "CRITICAL"
 
 
+class ReviewDecision(str, Enum):
+    """Decisão HUMANA sobre um incidente. Não altera o status do ciclo de vida (OPEN/RESOLVED):
+    quem decide conformidade é o Rules Engine; a revisão só registra o parecer do operador."""
+    CONFIRMED = "CONFIRMED"
+    DISMISSED = "DISMISSED"
+    INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
+
+
+REVIEW_PENDING = "PENDING"
+
+
 class ViolationType(str, Enum):
     PPE_VIOLATION = "PPE_VIOLATION"
 
@@ -43,6 +54,7 @@ class EventType(str, Enum):
     INCIDENT_CREATED = "INCIDENT_CREATED"
     INCIDENT_UPDATED = "INCIDENT_UPDATED"
     INCIDENT_RESOLVED = "INCIDENT_RESOLVED"
+    INCIDENT_REVIEWED = "INCIDENT_REVIEWED"
 
 
 class Action(str, Enum):
