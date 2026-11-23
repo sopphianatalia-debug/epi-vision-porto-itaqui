@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # Retenção máxima de histórico em memória (0 = ilimitado).
     max_history: int = 0
 
+    # Caminho do arquivo SQLite. Vazio = só em memória (comportamento anterior).
+    db_path: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

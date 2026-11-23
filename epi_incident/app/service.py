@@ -86,6 +86,7 @@ class IncidentService:
 
         # Idempotência: o mesmo evaluation_id não conta duas vezes.
         if v.evaluation_id and v.evaluation_id in existing._processed_eval_ids:
+            self._repo.persist(existing)
             return existing, Action.NOOP
 
         existing.occurrence_count += 1
@@ -93,6 +94,7 @@ class IncidentService:
             existing._processed_eval_ids.add(v.evaluation_id)
             existing.last_evaluation_id = v.evaluation_id
         existing.updated_at = now
+        self._repo.persist(existing)
         self._bus.publish(EventType.INCIDENT_UPDATED, self._payload(existing))
         log_event(EventType.INCIDENT_UPDATED, incident_id=existing.incident_id,
                   employee_id=existing.employee_id, ppe_type=existing.ppe_type,
@@ -176,6 +178,7 @@ class IncidentService:
         inc.updated_at = now
         inc.review_history.append({"decision": dec.value, "note": note, "reviewer": reviewer,
                                    "reviewed_at": now.isoformat()})
+        self._repo.persist(inc)
         self._bus.publish(EventType.INCIDENT_REVIEWED, {**self._payload(inc), "reviewer": reviewer})
         log_event(EventType.INCIDENT_REVIEWED, incident_id=inc.incident_id, decision=dec.value, reviewer=reviewer)
         return inc
@@ -186,6 +189,7 @@ class IncidentService:
         inc.resolved_at = now
         inc.updated_at = now
         self._repo.mark_resolved_in_index(inc)
+        self._repo.persist(inc)
         metrics.record_resolved()
         self._bus.publish(EventType.INCIDENT_RESOLVED, {
             **self._payload(inc),

@@ -126,3 +126,8 @@ pip install -e ".[dev]"
 uvicorn app.main:app --reload   # http://localhost:8000/docs
 pytest -q                        # 45 testes (unit + cenários + API)
 ```
+
+## Revisão humana e persistência (Fase 1 do Mapa Operacional)
+- `POST /api/v1/incidents/{id}/review` com `{"decision": "CONFIRMED|DISMISSED|INSUFFICIENT_EVIDENCE", "note": "...", "reviewer": "..."}`. Justificativa e revisor obrigatórios (422 sem eles). A revisão **não** altera `OPEN/RESOLVED` nem a conformidade (decidida pelo Rules Engine). Cada parecer entra em `review_history` (trilha de auditoria, só cresce). Evento `INCIDENT_REVIEWED`.
+- `INC_DB_PATH=/caminho/incidentes.db` liga a persistência em SQLite: incidentes, revisões e idempotência sobrevivem a reinício. Sem a variável, continua em memória (como antes). O arquivo `.db` não vai para o Git.
+- O `reviewer` ainda é texto informado; vira usuário autenticado quando houver login.

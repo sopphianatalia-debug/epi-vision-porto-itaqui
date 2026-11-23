@@ -30,6 +30,9 @@ class IncidentRepository:
         self._prune()
         return incident
 
+    def persist(self, incident: Incident) -> None:
+        """Ponto de extensão: repositórios duráveis gravam aqui. Em memória, não faz nada."""
+
     def get(self, incident_id: str) -> Optional[Incident]:
         return self._by_id.get(incident_id)
 
