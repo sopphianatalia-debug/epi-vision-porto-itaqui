@@ -8,7 +8,7 @@ git clone https://github.com/sopphianatalia-debug/epi-vision-porto-itaqui.git
 cd epi-vision-porto-itaqui
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e epi_ppe -e epi_identity -e epi_fusion -e epi_rules -e epi_incident -e epi_auth -e epi_integration
-pip install ultralytics opencv-python pyjwt httpx
+pip install ultralytics opencv-python pyjwt httpx greenlet aiosqlite
 ```
 (Se algum `pip install -e` reclamar de uma pasta, instale as dependências listadas no `pyproject.toml` dela.)
 Coloque o modelo treinado (`.pt`) em um lugar seu, por exemplo `~/modelos/epi.pt`.
