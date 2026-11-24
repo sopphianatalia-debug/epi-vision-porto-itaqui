@@ -22,7 +22,7 @@ from app.recognition.types import (
 
 
 class InsightFaceProvider(FaceRecognitionProvider):
-    def __init__(self, model_name: str = "buffal_l", embedding_dim: int = 512) -> None:
+    def __init__(self, model_name: str = "buffalo_l", embedding_dim: int = 512) -> None:
         try:
             from insightface.app import FaceAnalysis  # type: ignore
         except ImportError as exc:  # pragma: no cover
