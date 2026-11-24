@@ -11,3 +11,4 @@ demo_logs/
 
 *.db
 *.sqlite
+.local/
