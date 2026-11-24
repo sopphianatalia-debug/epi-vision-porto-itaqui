@@ -139,3 +139,20 @@ pytest -q                        # 45 testes (unit + cenários + API)
 - `INC_AUTH_MODE=off` (padrão): sem login, como antes; o revisor é o nome digitado e fica marcado `reviewer_verified=false`.
 - `INC_AUTH_MODE=required` + `EPI_JWT_SECRET` (o mesmo do `epi_auth`): `GET /incidents*`, `POST /incidents/{id}/review` e o WebSocket (`?token=`) exigem token. **O revisor é quem está logado** (`reviewed_by`, `reviewed_by_role`, `reviewer_verified=true`); o campo `reviewer` do corpo é ignorado. Operador não sobrescreve a revisão de outra pessoa (403); supervisor pode. Tudo fica em `review_history`.
 - `INC_SERVICE_KEY=...` (opcional): endpoints de máquina (`POST /incidents`, `/incidents/evaluations`, `/incidents/{id}/resolve`) passam a exigir o cabeçalho `X-Service-Key`. Sem a variável, ficam abertos (como antes). Os serviços que chamam o Incident precisam enviar o cabeçalho antes de você ligar isso.
+
+## Evidência em imagem (recorte da pessoa)
+
+Ativa só se `INC_EVIDENCE_DIR` estiver definido **e** `INC_AUTH_MODE=required`. Sem login, nenhuma imagem é guardada nem servida.
+
+- Guarda **só o recorte da pessoa** (JPEG/PNG, ≤ 1 MB, ≤ 1280 px) e as caixas de detecção (0..1, relativas ao recorte); a tela desenha por cima, a imagem não é alterada. Sem dado de reconhecimento facial.
+- Prazo: 30 dias após a revisão (sem revisão: 30 dias após a captura); 7 dias se `DISMISSED` ou `INSUFFICIENT_EVIDENCE`. Limpeza ao iniciar e a cada hora (`INC_EVIDENCE_PURGE_INTERVAL_SECONDS`), ou `POST /evidence/purge` (supervisor).
+- Quem vê: operador (incidentes pendentes ou revisados por ele) e supervisor (todos). Sem URL pública; resposta com `Cache-Control: private, no-store`.
+- Todo envio, visualização, exclusão e limpeza entra na trilha (`GET /incidents/{id}/evidence-access-log`, supervisor).
+
+| Rota | Quem |
+|---|---|
+| `POST /incidents/{id}/evidence` (JSON `image_base64`, `detections`) | serviço (`X-Service-Key`) |
+| `GET /incidents/{id}/evidence` · `GET .../evidence/{eid}/image` | operador/supervisor |
+| `DELETE .../evidence/{eid}` (pedido do titular, LGPD) | supervisor |
+
+Variáveis: `INC_EVIDENCE_DAYS` (30), `INC_EVIDENCE_DAYS_DISMISSED` (7), `INC_EVIDENCE_MAX_BYTES`, `INC_EVIDENCE_MAX_SIDE`, `INC_EVIDENCE_MAX_PER_INCIDENT` (3). Os arquivos têm nome aleatório e modo 0600; o diretório fica fora do Git.

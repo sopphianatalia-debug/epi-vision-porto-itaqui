@@ -31,6 +31,15 @@ class Settings(BaseSettings):
     # X-Service-Key com este valor. Vazia = abertos (como antes).
     service_key: str = ""
 
+    # Evidência em imagem (recorte da pessoa). Vazio = desativada. Exige INC_AUTH_MODE=required.
+    evidence_dir: str = ""
+    evidence_days: int = Field(default=30, gt=0)            # após a revisão (ou da captura, se não revisado)
+    evidence_days_dismissed: int = Field(default=7, gt=0)   # descartado / evidência insuficiente
+    evidence_max_bytes: int = Field(default=1_000_000, gt=0)
+    evidence_max_side: int = Field(default=1280, gt=0)      # px; recorte, não o quadro inteiro
+    evidence_max_per_incident: int = Field(default=3, gt=0)
+    evidence_purge_interval_seconds: int = Field(default=3600, gt=0)
+
     # Caminho do arquivo SQLite. Vazio = só em memória (comportamento anterior).
     db_path: str = ""
 

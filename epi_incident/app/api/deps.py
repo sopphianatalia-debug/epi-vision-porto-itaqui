@@ -4,6 +4,7 @@ from functools import lru_cache
 
 from app.config import get_settings
 from app.infrastructure import Clock, InMemoryEventBus, IncidentRepository, SqliteIncidentRepository
+from app.evidence import EvidenceService, EvidenceStore
 from app.service import IncidentService
 
 
@@ -23,3 +24,10 @@ def get_service() -> IncidentService:
     bus = InMemoryEventBus()
     bus.subscribe(get_hub().on_event)
     return IncidentService(settings, Clock(), bus, repo)
+
+
+@lru_cache
+def get_evidence() -> EvidenceService:
+    settings = get_settings()
+    store = EvidenceStore(settings.evidence_dir, settings.db_path) if settings.evidence_dir else None
+    return EvidenceService(settings, store)
