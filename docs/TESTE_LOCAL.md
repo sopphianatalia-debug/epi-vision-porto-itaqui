@@ -26,7 +26,7 @@ cd epi_auth && AUTH_DB_PATH=../.local/auth.db python -m app.cli create-user --us
 ```
 
 ## 3. Câmera (outro terminal, mesmo venv)
-Rode o comando que o `start_demo.py` imprimiu no fim (já inclui a evidência). Antes: `set -a; . .local/segredos.env; set +a`.
+Rode `./scripts/camera_local.sh` (carrega os segredos e todas as variáveis; aceita a fonte: `./scripts/camera_local.sh video.mp4`). Não cole o comando em várias linhas no Terminal: cada linha vira um comando separado.
 `--source` aceita `0` (webcam), `video.mp4` ou `rtsp://usuario:senha@ip:554/stream`. No Mac, autorize a câmera para o Terminal em Ajustes do Sistema → Privacidade e Segurança → Câmera. `q` fecha a janela.
 Fique sem capacete por mais de 3 segundos: o incidente abre e o recorte é enviado.
 
