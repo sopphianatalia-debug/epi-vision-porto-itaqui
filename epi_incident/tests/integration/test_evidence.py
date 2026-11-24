@@ -97,7 +97,7 @@ def test_limit_per_incident(ev):
     assert _up(client, iid).status_code == 422
 
 
-def test_operator_blocked_after_other_reviews_supervisor_always_sees(ev):
+def test_operator_sees_only_pending_supervisor_always_sees(ev):
     client, _ = ev
     iid = _inc(client)
     eid = _up(client, iid).json()["evidence_id"]

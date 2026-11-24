@@ -82,9 +82,12 @@ def resolve_incident(incident_id: str, svc: IncidentService = Depends(get_servic
 def review_incident(incident_id: str, body: ReviewIn, svc: IncidentService = Depends(get_service),
                     user: Optional[dict] = Depends(current_user)):
     """Parecer humano (CONFIRMED | DISMISSED | INSUFFICIENT_EVIDENCE) com justificativa e revisor.
+    Com login (INC_AUTH_MODE=required), só o SUPERVISOR decide; o operador acompanha (leitura).
     Não altera OPEN/RESOLVED nem a conformidade, que continua sendo decidida pelo Rules Engine."""
     # Com login, o revisor é quem está autenticado (o campo `reviewer` do corpo é ignorado).
     if user is not None:
+        if user["role"] != "SUPERVISOR":
+            raise HTTPException(status_code=403, detail="Somente o supervisor decide a revisão; o operador acompanha.")
         reviewer, role, verified = user["username"], user["role"], True
     else:
         reviewer, role, verified = body.reviewer or "", None, False

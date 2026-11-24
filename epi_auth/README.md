@@ -4,8 +4,8 @@ Usuários com perfil **OPERADOR** ou **SUPERVISOR**. Quem entra recebe um token 
 
 | Perfil | Pode |
 |---|---|
-| OPERADOR | entrar, ver e revisar incidentes; **não** sobrescreve a revisão de outra pessoa |
-| SUPERVISOR | tudo do operador + mudar revisão de outros + gerenciar usuários |
+| OPERADOR | entrar e acompanhar incidentes pendentes com a evidência (somente leitura); **não** decide a revisão |
+| SUPERVISOR | tudo do operador + **decidir a revisão** (confirmar, descartar, evidência insuficiente) + ver todas as evidências + apagar evidência + gerenciar usuários |
 
 ## Rodar
 ```

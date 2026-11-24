@@ -4,7 +4,7 @@ Evidência em imagem de um incidente: SÓ o recorte da pessoa (nunca o quadro in
 Regras aprovadas:
 - guarda 30 dias após a revisão (sem revisão: 30 dias após a captura);
 - 7 dias após a revisão se DISMISSED (descartado) ou INSUFFICIENT_EVIDENCE;
-- só o operador (dos incidentes que ele revisa) e o supervisor (todos) veem;
+- o supervisor vê todas; o operador só acompanha incidentes ainda PENDENTES (quem decide é o supervisor);
 - todo acesso, envio, exclusão e apagamento automático ficam registrados;
 - exige login (INC_AUTH_MODE=required): sem login, nenhuma imagem é guardada ou servida;
 - não guarda reconhecimento facial, só pixels do recorte e as caixas de detecção.
@@ -253,7 +253,7 @@ class EvidenceService:
     def can_view(user: dict, incident: Incident) -> bool:
         if user["role"] == "SUPERVISOR":
             return True
-        return incident.review_status == "PENDING" or incident.reviewed_by == user["username"]
+        return incident.review_status == "PENDING"
 
     # ---- operações -----------------------------------------------------------------------------
     def add(self, incident: Incident, data: bytes, detections, now: datetime, findings=None) -> EvidenceMeta:

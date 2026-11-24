@@ -44,11 +44,11 @@ def test_forged_expired_and_wrong_issuer_tokens_are_rejected(secured):
 
 def test_review_uses_logged_user_not_body(secured):
     iid = _open(secured, "F-AUTH-2")
-    r = secured.post(f"{PREFIX}/incidents/{iid}/review", headers=tok("bruno", "OPERADOR", "Bruno"),
+    r = secured.post(f"{PREFIX}/incidents/{iid}/review", headers=tok("bruno", "SUPERVISOR", "Bruno"),
                      json={"decision": "CONFIRMED", "note": "sem capacete", "reviewer": "fingindo-ser-outra-pessoa"})
     assert r.status_code == 200
     b = r.json()
-    assert b["reviewed_by"] == "bruno" and b["reviewed_by_role"] == "OPERADOR" and b["reviewer_verified"] is True
+    assert b["reviewed_by"] == "bruno" and b["reviewed_by_role"] == "SUPERVISOR" and b["reviewer_verified"] is True
     assert b["review_history"][0]["verified"] is True
 
 
@@ -58,16 +58,16 @@ def test_review_without_token_is_refused(secured):
     assert r.status_code == 401
 
 
-def test_operator_cannot_overwrite_other_review_but_supervisor_can(secured):
+def test_only_supervisor_decides_operator_is_read_only(secured):
     iid = _open(secured, "F-AUTH-4")
     body = {"decision": "DISMISSED", "note": "falso positivo"}
-    assert secured.post(f"{PREFIX}/incidents/{iid}/review", headers=tok("bruno", "OPERADOR"), json=body).status_code == 200
-    r = secured.post(f"{PREFIX}/incidents/{iid}/review", headers=tok("carla", "OPERADOR"), json={**body, "decision": "CONFIRMED"})
+    r = secured.post(f"{PREFIX}/incidents/{iid}/review", headers=tok("bruno", "OPERADOR"), json=body)
     assert r.status_code == 403
-    assert secured.post(f"{PREFIX}/incidents/{iid}/review", headers=tok("bruno", "OPERADOR"), json={**body, "note": "revi de novo"}).status_code == 200
-    r = secured.post(f"{PREFIX}/incidents/{iid}/review", headers=tok("ana", "SUPERVISOR"), json={**body, "decision": "CONFIRMED", "note": "confirmo"})
-    assert r.status_code == 200 and r.json()["reviewed_by"] == "ana"
-    assert [h["reviewer"] for h in r.json()["review_history"]] == ["bruno", "bruno", "ana"]
+    assert secured.get(f"{PREFIX}/incidents/{iid}", headers=tok("bruno", "OPERADOR")).json()["review_status"] == "PENDING"   # operador ainda lê
+    assert secured.post(f"{PREFIX}/incidents/{iid}/review", headers=tok("ana", "SUPERVISOR"), json=body).status_code == 200
+    r = secured.post(f"{PREFIX}/incidents/{iid}/review", headers=tok("carla", "SUPERVISOR"), json={**body, "decision": "CONFIRMED", "note": "confirmo"})
+    assert r.status_code == 200 and r.json()["reviewed_by"] == "carla"
+    assert [h["reviewer"] for h in r.json()["review_history"]] == ["ana", "carla"]
 
 
 def test_off_mode_keeps_typed_name_and_marks_unverified(client):
