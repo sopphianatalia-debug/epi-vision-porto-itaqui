@@ -7,6 +7,7 @@ processo do módulo.
 """
 from __future__ import annotations
 
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -14,7 +15,8 @@ import jwt
 
 from app.clients import ServiceClient
 
-JWT_SECRET = "integration-tests-shared-secret-please-ignore"  # deve casar com runner.py
+# Segredo de teste (público!). Fora de testes, defina EPI_JWT_SECRET no ambiente: o serviço e este cliente usam o mesmo.
+JWT_SECRET = os.environ.get("EPI_JWT_SECRET") or "integration-tests-shared-secret-please-ignore"  # sem variável: deve casar com runner.py
 JWT_ALGORITHM = "HS256"
 
 

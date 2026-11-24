@@ -13,24 +13,20 @@ pip install ultralytics opencv-python pyjwt httpx greenlet aiosqlite
 (Se algum `pip install -e` reclamar de uma pasta, instale as dependências listadas no `pyproject.toml` dela.)
 Coloque o modelo treinado (`.pt`) em um lugar seu, por exemplo `~/modelos/epi.pt`.
 
-## 2. Subir os serviços
+## 2. Subir tudo para a demonstração (um terminal)
+Use o `start_demo.py`: além dos serviços, ele cria o funcionário de demonstração, as regras com 3 s de persistência e os EPIs dele no tracker. Sem isso nenhuma pessoa é identificada e nenhum incidente abre.
 ```
-export PPE_DETECTOR_PROVIDER=yolo
-export PPE_DETECTOR_MODEL_PATH=~/modelos/epi.pt
-./scripts/subir_local.sh start
-./scripts/subir_local.sh status      # tudo OK?
+set -a; . .local/segredos.env; set +a        # segredos locais (o ./scripts/subir_local.sh start cria o arquivo na primeira vez)
+cd epi_integration
+python scripts/start_demo.py --evidence --model /caminho/do/best.pt
 ```
-Criar o seu usuário (pede a senha sem mostrar):
+Sem YOLO: `--mock`. Ctrl+C encerra tudo. Crie o seu usuário uma vez (antes de subir, com `.local/segredos.env` carregado):
 ```
 cd epi_auth && AUTH_DB_PATH=../.local/auth.db python -m app.cli create-user --username sophia --name "Sophia" --role SUPERVISOR && cd ..
 ```
 
-## 3. Câmera
-```
-set -a; . .local/segredos.env; set +a
-export EPI_PIPELINE_SEND_EVIDENCE=true EPI_PIPELINE_INCIDENT_SERVICE_KEY=$INC_SERVICE_KEY
-python epi_integration/scripts/run_camera_demo.py --source 0 --camera-id CAM-01
-```
+## 3. Câmera (outro terminal, mesmo venv)
+Rode o comando que o `start_demo.py` imprimiu no fim (já inclui a evidência). Antes: `set -a; . .local/segredos.env; set +a`.
 `--source` aceita `0` (webcam), `video.mp4` ou `rtsp://usuario:senha@ip:554/stream`. No Mac, autorize a câmera para o Terminal em Ajustes do Sistema → Privacidade e Segurança → Câmera. `q` fecha a janela.
 Fique sem capacete por mais de 3 segundos: o incidente abre e o recorte é enviado.
 
@@ -38,11 +34,8 @@ Fique sem capacete por mais de 3 segundos: o incidente abre e o recorte é envia
 Use o front do repositório `visao-do-porto-evolucao` (`cd frontend && npm install && npm run dev`, depois abra http://localhost:5173), entre com o usuário criado e abra o incidente na fila.
 
 ## 5. Parar
-```
-./scripts/subir_local.sh stop
-```
-Logs: `.local/logs/<serviço>.log`. Para apagar as imagens de teste: apague `.local/evidencias/`.
+Ctrl+C no terminal do `start_demo.py`. As imagens de teste ficam em `.local/evidencias/` (apague quando quiser).
 
 ## Observações
-- Sem `PPE_DETECTOR_PROVIDER=yolo` o serviço usa o detector de teste (mock), que não lê imagem de câmera.
-- Este caminho com câmera real ainda não foi exercitado de ponta a ponta; se algo falhar, mande o conteúdo de `.local/logs/`.
+- `./scripts/subir_local.sh` sobe só os serviços (sem funcionário nem regras de demonstração); serve para testar login e API.
+- Se o log do Identity mostrar 401, o terminal da câmera não carregou `.local/segredos.env`.

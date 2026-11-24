@@ -142,6 +142,9 @@ def main() -> int:
     ap.add_argument("--cameras-file", default="~/.epi_vision/cameras.json",
                     help="onde o cadastro de câmeras é gravado (sobrevive a reiniciar e a trocar de versão). "
                          "Apague o arquivo para voltar às câmeras de exemplo.")
+    ap.add_argument("--evidence", action="store_true",
+                    help="liga login (epi_auth :8006) e a evidência em imagem no Incident. Exige EPI_JWT_SECRET e "
+                         "INC_SERVICE_KEY no ambiente (ex.: set -a; . .local/segredos.env; set +a).")
     args = ap.parse_args()
     if not args.model and not args.mock:
         ap.error("informe --model /caminho/best.pt ou --mock")
@@ -160,14 +163,27 @@ def main() -> int:
         vision_env.update({"PPE_DETECTOR_PROVIDER": "yolo", "PPE_DETECTOR_MODEL_PATH": str(Path(args.model).resolve()),
                            "PPE_DETECTOR_DEVICE": args.device})
 
+    secret = os.environ.get("EPI_JWT_SECRET") or "integration-tests-shared-secret-please-ignore"
+    incident_env: dict = {}
+    if args.evidence:
+        if not os.environ.get("EPI_JWT_SECRET") or not os.environ.get("INC_SERVICE_KEY"):
+            ap.error("--evidence exige EPI_JWT_SECRET e INC_SERVICE_KEY no ambiente (set -a; . .local/segredos.env; set +a)")
+        local = ROOT / ".local"
+        (local / "evidencias").mkdir(parents=True, exist_ok=True)
+        SERVICES["auth"] = ("epi_auth", 8006)
+        incident_env = {"INC_AUTH_MODE": "required", "EPI_JWT_SECRET": secret,
+                        "INC_SERVICE_KEY": os.environ["INC_SERVICE_KEY"],
+                        "INC_EVIDENCE_DIR": str(local / "evidencias"), "INC_DB_PATH": str(local / "incident.db")}
+
     cameras_path = Path(args.cameras_file).expanduser()
     first_run = not cameras_path.exists()          # só semeia as câmeras de exemplo na primeira vez
     envs = {
         "vision": vision_env,
         "identity": {"EPI_ENVIRONMENT": "test", "EPI_DATABASE_URL": f"sqlite+aiosqlite:///{db}",
-                     "EPI_JWT_SECRET": "integration-tests-shared-secret-please-ignore"},
+                     "EPI_JWT_SECRET": secret},
         "fusion": {"FUS_ENVIRONMENT": "test"},
-        "rules": {}, "incident": {},
+        "rules": {}, "incident": incident_env,
+        "auth": {"AUTH_DB_PATH": str(ROOT / ".local" / "auth.db"), "EPI_JWT_SECRET": secret},
         "tracker": {"EPI_TRACKER_LOCATION_FRESH_SECONDS": "3600", "EPI_TRACKER_LOCATION_TTL_SECONDS": "7200",
                     "EPI_TRACKER_CAMERAS_FILE": str(cameras_path)},
         "alerts": {"EPI_ALERTS_SYNC_MIN_INTERVAL_SECONDS": "2"},
@@ -196,6 +212,8 @@ def main() -> int:
         stop_all()
         return 1
 
+    evidence_env = ("EPI_PIPELINE_SEND_EVIDENCE=true EPI_PIPELINE_INCIDENT_SERVICE_KEY=$INC_SERVICE_KEY \\\n  "
+                    if args.evidence else "")
     print(f"""
 Tudo pronto. Funcionário de demonstração: {code} (identidade MOCK)
 Capacete e colete dele estão no tracker em {DEMO_AREA}.
@@ -203,7 +221,7 @@ Capacete e colete dele estão no tracker em {DEMO_AREA}.
 Em OUTRO terminal (mesmo venv), rode a câmera:
 
   cd {ROOT / 'epi_integration'}
-  EPI_PIPELINE_DEMO_EMPLOYEE_SEED={code} \\
+  {evidence_env}EPI_PIPELINE_DEMO_EMPLOYEE_SEED={code} \\
   EPI_PIPELINE_OPERATION=GERAL \\
   EPI_PIPELINE_BLIND_REGIONS=feet,hands \\
   EPI_PIPELINE_TRACKER_URL=http://127.0.0.1:8010/api/v1 \\
