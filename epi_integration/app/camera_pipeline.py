@@ -169,6 +169,7 @@ class RealCameraPipeline:
         tracker_area_id: Optional[str] = None,
         tracker_sync_interval_seconds: float = 2.0,
         single_identity_per_frame: bool = False,
+        send_evidence: bool = False,
     ) -> None:
         self._vision = vision_client
         self._identity = identity_client
@@ -207,6 +208,8 @@ class RealCameraPipeline:
         # maior confiança do quadro recebe a identidade; as demais ficam NÃO
         # identificadas (e não são avaliadas), como numa câmera real.
         self._single_identity = single_identity_per_frame
+        # Evidência em imagem: só o recorte da pessoa, ao abrir o incidente. Desligado por padrão.
+        self._send_evidence = send_evidence
         self._primary_track: Optional[str] = None
 
         self.metrics = PipelineMetrics()
@@ -279,7 +282,7 @@ class RealCameraPipeline:
                 primary_track = best["person_track_id"]
             self._primary_track = primary_track
         results = [self._process_person(camera_id, r, force_unidentified=(
-            self._single_identity and r["person_track_id"] != primary_track), frame_size=frame_size)
+            self._single_identity and r["person_track_id"] != primary_track), frame_size=frame_size, frame=frame)
             for r in person_results]
         elapsed_ms = (self._clock() - start) * 1000.0
         self.metrics.pipeline_latency_ms_total += elapsed_ms
@@ -288,7 +291,8 @@ class RealCameraPipeline:
 
     def _process_person(self, camera_id: str, person_result: dict,
                         force_unidentified: bool = False,
-                        frame_size: Optional[tuple[float, float]] = None) -> PersonPipelineResult:
+                        frame_size: Optional[tuple[float, float]] = None,
+                        frame: Any = None) -> PersonPipelineResult:
         track_id = person_result["person_track_id"]
         # Visibilidade deste quadro = perfil fixo da câmera + o que o
         # enquadramento corta para ESTA pessoa agora (ex.: cabeça fora do quadro).
@@ -407,6 +411,7 @@ class RealCameraPipeline:
                 incident_actions.append({"action": action, "incident_id": incident.get("incident_id")})
                 if action == "CREATED":
                     self.metrics.incidents_created += 1
+                    self._attach_evidence(incident.get("incident_id"), frame, person_result, ppe_payload)
                     _log_event("INCIDENT_CREATED", camera_id=camera_id, employee_id=employee_id,
                                incident_id=incident.get("incident_id"), rule_id=incident.get("rule_id"),
                                ppe_type=incident.get("ppe_type"))
@@ -425,6 +430,22 @@ class RealCameraPipeline:
             identity_confidence=identity_fields["identity_confidence"], identity_from_cache=from_cache,
             ppe=ppe_payload, overall_status=overall_status, incident_actions=incident_actions,
         )
+
+    def _attach_evidence(self, incident_id, frame, person_result: dict, ppe_payload: dict) -> None:
+        """Recorta a pessoa e envia ao Incident. Best-effort: a evidência é complemento da revisão,
+        nunca decide conformidade, e qualquer falha só deixa de haver imagem."""
+        if not (self._send_evidence and incident_id and frame is not None):
+            return
+        try:
+            from app.evidence_crop import build_evidence
+            status = {k: v.get("status") for k, v in (ppe_payload or {}).items() if isinstance(v, dict)}
+            built = build_evidence(frame, person_result.get("person_bbox"), person_result.get("detections"), status)
+            if built is None:
+                return
+            if not self._incident.upload_evidence(incident_id, built[0], built[1]):
+                logger.warning("Incident recusou a evidência (incidente=%s)", incident_id)
+        except Exception:
+            logger.exception("Falha ao enviar evidência (incidente=%s)", incident_id)
 
     def _sync_tracker_evidence(self, camera_id: str, employee_id: str) -> None:
         """Lê no epi_tracker a localização dos EPIs ATRIBUÍDOS ao funcionário

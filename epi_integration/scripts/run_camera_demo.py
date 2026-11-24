@@ -71,7 +71,7 @@ def build_pipeline(settings, demo_employee_seed: Optional[str]) -> RealCameraPip
     identity = IdentityClient(settings.identity_url)
     fusion = FusionClient(settings.fusion_url)
     rules = RulesClient(settings.rules_url)
-    incident = IncidentClient(settings.incident_url)
+    incident = IncidentClient(settings.incident_url, service_key=settings.incident_service_key or None)
 
     def seed_provider(camera_id: str, track_id: str) -> Optional[str]:
         return demo_employee_seed
@@ -88,6 +88,7 @@ def build_pipeline(settings, demo_employee_seed: Optional[str]) -> RealCameraPip
         tracker_area_id=settings.tracker_area_id or None,
         # Com identidade de demonstração, só UMA pessoa por quadro a recebe.
         single_identity_per_frame=bool(demo_employee_seed),
+        send_evidence=settings.send_evidence,
     )
 
 

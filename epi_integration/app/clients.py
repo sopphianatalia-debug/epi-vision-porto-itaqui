@@ -180,6 +180,19 @@ class VisionClient(ServiceClient):
 
 
 class IncidentClient(ServiceClient):
+    def __init__(self, base_url: str, timeout: float = 5.0, service_key: Optional[str] = None) -> None:
+        super().__init__(base_url, timeout)
+        # Chave de serviço (INC_SERVICE_KEY do Incident): vem do ambiente, nunca do Git.
+        if service_key:
+            self._client.headers["X-Service-Key"] = service_key
+
+    def upload_evidence(self, incident_id: str, jpeg: bytes, detections: list[dict]) -> bool:
+        """Envia o RECORTE da pessoa. Falha aqui nunca derruba o pipeline (quem chama trata)."""
+        import base64
+        resp = self._client.post(f"/incidents/{incident_id}/evidence",
+                                 json={"image_base64": base64.b64encode(jpeg).decode("ascii"), "detections": detections})
+        return resp.status_code == 201
+
     def process_evaluation(self, evaluation: dict) -> list[dict]:
         resp = self._client.post("/incidents/evaluations", json=evaluation)
         resp.raise_for_status()

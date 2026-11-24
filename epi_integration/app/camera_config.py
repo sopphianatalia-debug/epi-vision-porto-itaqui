@@ -63,6 +63,12 @@ class CameraPipelineSettings(BaseSettings):
     # está instalada; permite ao Fusion comparar câmera x tracker.
     tracker_area_id: str = ""
 
+    # Evidência em imagem: ao abrir um incidente, envia SÓ o recorte da pessoa ao Incident Service
+    # (que também precisa de INC_EVIDENCE_DIR e INC_AUTH_MODE=required). Desligado por padrão.
+    send_evidence: bool = False
+    # Chave de serviço do Incident (INC_SERVICE_KEY). Vem do ambiente/.env local, nunca do Git.
+    incident_service_key: str = ""
+
     # --- URLs dos serviços já existentes (reaproveitados, não recriados) ---
     vision_url: str = "http://127.0.0.1:8000/api/v1"
     identity_url: str = "http://127.0.0.1:8001/api/v1"
