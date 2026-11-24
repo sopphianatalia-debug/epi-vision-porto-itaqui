@@ -23,7 +23,12 @@ launch() { # nome pasta porta  (variáveis de ambiente já exportadas no subshel
   local name=$1 dir=$2 port=$3
   ( cd "$ROOT/$dir"
     case "$name" in
-      epi_ppe)  export PPE_DETECTOR_PROVIDER="${PPE_DETECTOR_PROVIDER:-mock}"; export PPE_DETECTOR_MODEL_PATH="${PPE_DETECTOR_MODEL_PATH:-yolov8n.pt}";;
+      epi_ppe)  # Com câmera real o detector TEM que ser o YOLO. Se existir um best.pt do treino, usa ele sozinho.
+                if [ -z "${PPE_DETECTOR_PROVIDER:-}" ] && [ -f "$ROOT/runs/detect/train/weights/best.pt" ]; then
+                  export PPE_DETECTOR_PROVIDER=yolo PPE_DETECTOR_MODEL_PATH="$ROOT/runs/detect/train/weights/best.pt"
+                fi
+                export PPE_DETECTOR_PROVIDER="${PPE_DETECTOR_PROVIDER:-mock}"; export PPE_DETECTOR_MODEL_PATH="${PPE_DETECTOR_MODEL_PATH:-yolov8n.pt}"
+                echo "  epi_ppe: detector=$PPE_DETECTOR_PROVIDER modelo=$PPE_DETECTOR_MODEL_PATH";;
       identity) export EPI_ENVIRONMENT=test EPI_DATABASE_URL="sqlite+aiosqlite:///$LOCAL/identity.db";;
       incident) export INC_AUTH_MODE=required INC_DB_PATH="$LOCAL/incident.db" INC_EVIDENCE_DIR="$LOCAL/evidencias" INC_IDENTITY_URL="http://127.0.0.1:8001/api/v1";;
       auth)     export AUTH_DB_PATH="$LOCAL/auth.db";;
