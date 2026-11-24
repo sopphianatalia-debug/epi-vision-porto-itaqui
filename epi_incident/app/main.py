@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from app.api.deps import get_evidence, get_service
 from app.api.evidence_routes import router as evidence_router
 from app.api.routes import router
+from app.api.worker_routes import router as worker_router
 from app.api.ws import router as ws_router
 from app.config import get_settings
 from app.observability import configure_logging
@@ -36,6 +37,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="EPI Vision — Fase 3.4: Incident Service", version="1.0.0", lifespan=lifespan)
     app.include_router(router, prefix=settings.api_prefix)
     app.include_router(evidence_router, prefix=settings.api_prefix)
+    app.include_router(worker_router, prefix=settings.api_prefix)
     app.include_router(ws_router, prefix=settings.api_prefix)
 
     @app.get("/health", tags=["health"])

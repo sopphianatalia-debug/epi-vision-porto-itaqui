@@ -25,7 +25,7 @@ launch() { # nome pasta porta  (variáveis de ambiente já exportadas no subshel
     case "$name" in
       epi_ppe)  export PPE_DETECTOR_PROVIDER="${PPE_DETECTOR_PROVIDER:-mock}"; export PPE_DETECTOR_MODEL_PATH="${PPE_DETECTOR_MODEL_PATH:-yolov8n.pt}";;
       identity) export EPI_ENVIRONMENT=test EPI_DATABASE_URL="sqlite+aiosqlite:///$LOCAL/identity.db";;
-      incident) export INC_AUTH_MODE=required INC_DB_PATH="$LOCAL/incident.db" INC_EVIDENCE_DIR="$LOCAL/evidencias";;
+      incident) export INC_AUTH_MODE=required INC_DB_PATH="$LOCAL/incident.db" INC_EVIDENCE_DIR="$LOCAL/evidencias" INC_IDENTITY_URL="http://127.0.0.1:8001/api/v1";;
       auth)     export AUTH_DB_PATH="$LOCAL/auth.db";;
     esac
     PYTHONPATH="$ROOT/$dir" nohup "$PY" -m uvicorn app.main:app --port "$port" >"$LOGS/$name.log" 2>&1 &

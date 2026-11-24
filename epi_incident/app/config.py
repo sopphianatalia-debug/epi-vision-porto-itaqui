@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     evidence_max_per_incident: int = Field(default=3, gt=0)
     evidence_purge_interval_seconds: int = Field(default=3600, gt=0)
 
+    # Cadastro de trabalhadores (epi_identity, ex.: http://127.0.0.1:8001/api/v1). Vazio = sem nome, só código.
+    identity_url: str = ""
+
     # Caminho do arquivo SQLite. Vazio = só em memória (comportamento anterior).
     db_path: str = ""
 

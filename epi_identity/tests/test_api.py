@@ -148,3 +148,12 @@ async def test_operator_cannot_review(client):
 async def test_unauthenticated_is_rejected(client):
     resp = await client.get(f"{PREFIX}/employees")
     assert resp.status_code in (401, 403)
+
+
+@pytest.mark.asyncio
+async def test_lookup_by_employee_code(client, sm_header):
+    emp = await _create_employee(client, sm_header, name="Maria Souza")
+    ok = await client.get(f"{PREFIX}/employees/by-code/{emp['employee_code']}", headers=sm_header)
+    assert ok.status_code == 200 and ok.json()["name"] == "Maria Souza" and ok.json()["sector"] == "Pátio"
+    missing = await client.get(f"{PREFIX}/employees/by-code/FUNC-999999", headers=sm_header)
+    assert missing.status_code == 404

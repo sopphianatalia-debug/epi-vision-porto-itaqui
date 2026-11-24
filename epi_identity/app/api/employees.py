@@ -32,6 +32,18 @@ async def list_employees(
     return await employee_service.list_employees(session, limit, offset)
 
 
+@router.get("/by-code/{employee_code}", response_model=EmployeeOut)
+async def get_employee_by_code(
+    employee_code: str,
+    session: AsyncSession = Depends(get_session),
+    _: Principal = Depends(require_permission(Permission.EMPLOYEE_READ)),
+):
+    employee = await employee_service.get_by_code(session, employee_code)
+    if employee is None:
+        raise HTTPException(status_code=404, detail="Funcionário não encontrado.")
+    return employee
+
+
 @router.get("/{employee_id}", response_model=EmployeeOut)
 async def get_employee(
     employee_id: str,

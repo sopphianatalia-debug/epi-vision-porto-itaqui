@@ -156,3 +156,9 @@ Ativa só se `INC_EVIDENCE_DIR` estiver definido **e** `INC_AUTH_MODE=required`.
 | `DELETE .../evidence/{eid}` (pedido do titular, LGPD) | supervisor |
 
 Variáveis: `INC_EVIDENCE_DAYS` (30), `INC_EVIDENCE_DAYS_DISMISSED` (7), `INC_EVIDENCE_MAX_BYTES`, `INC_EVIDENCE_MAX_SIDE`, `INC_EVIDENCE_MAX_PER_INCIDENT` (3). Os arquivos têm nome aleatório e modo 0600; o diretório fica fora do Git.
+
+## Nome do trabalhador (supervisor)
+O incidente guarda só o código (`employee_id`). `GET /api/v1/workers/{employee_code}` devolve nome, cargo, setor e situação, **só para SUPERVISOR** (operador: 403; sem login: 503). A consulta é feita na hora ao `epi_identity` (`GET /employees/by-code/{code}`), com token próprio assinado por `EPI_JWT_SECRET`, e nada é gravado no Incident.
+- `INC_IDENTITY_URL=http://127.0.0.1:8001/api/v1` liga a consulta. Vazio = 503 e a tela mostra só o código.
+- Cadastro fora do ar ou funcionário inexistente: 503 / 404; o front cai para o código sem quebrar.
+- Biometria nunca é devolvida: só `employee_code`, `name`, `role_title`, `sector`, `status`.

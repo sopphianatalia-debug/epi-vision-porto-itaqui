@@ -6,6 +6,7 @@ from app.config import get_settings
 from app.infrastructure import Clock, InMemoryEventBus, IncidentRepository, SqliteIncidentRepository
 from app.evidence import EvidenceService, EvidenceStore
 from app.service import IncidentService
+from app.workers import WorkerDirectory
 
 
 @lru_cache
@@ -31,3 +32,9 @@ def get_evidence() -> EvidenceService:
     settings = get_settings()
     store = EvidenceStore(settings.evidence_dir, settings.db_path) if settings.evidence_dir else None
     return EvidenceService(settings, store)
+
+
+@lru_cache
+def get_workers() -> WorkerDirectory:
+    settings = get_settings()
+    return WorkerDirectory(settings.identity_url, settings.jwt_secret)

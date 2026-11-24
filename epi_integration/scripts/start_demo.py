@@ -173,7 +173,8 @@ def main() -> int:
         SERVICES["auth"] = ("epi_auth", 8006)
         incident_env = {"INC_AUTH_MODE": "required", "EPI_JWT_SECRET": secret,
                         "INC_SERVICE_KEY": os.environ["INC_SERVICE_KEY"],
-                        "INC_EVIDENCE_DIR": str(local / "evidencias"), "INC_DB_PATH": str(local / "incident.db")}
+                        "INC_EVIDENCE_DIR": str(local / "evidencias"),
+                        "INC_IDENTITY_URL": "http://127.0.0.1:8001/api/v1", "INC_DB_PATH": str(local / "incident.db")}
 
     cameras_path = Path(args.cameras_file).expanduser()
     first_run = not cameras_path.exists()          # só semeia as câmeras de exemplo na primeira vez
