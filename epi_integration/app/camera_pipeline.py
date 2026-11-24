@@ -411,7 +411,7 @@ class RealCameraPipeline:
                 incident_actions.append({"action": action, "incident_id": incident.get("incident_id")})
                 if action == "CREATED":
                     self.metrics.incidents_created += 1
-                    self._attach_evidence(incident.get("incident_id"), frame, person_result, ppe_payload)
+                    self._attach_evidence(incident.get("incident_id"), frame, person_result, ppe_payload, visibility)
                     _log_event("INCIDENT_CREATED", camera_id=camera_id, employee_id=employee_id,
                                incident_id=incident.get("incident_id"), rule_id=incident.get("rule_id"),
                                ppe_type=incident.get("ppe_type"))
@@ -431,18 +431,18 @@ class RealCameraPipeline:
             ppe=ppe_payload, overall_status=overall_status, incident_actions=incident_actions,
         )
 
-    def _attach_evidence(self, incident_id, frame, person_result: dict, ppe_payload: dict) -> None:
+    def _attach_evidence(self, incident_id, frame, person_result: dict, ppe_payload: dict, visibility=None) -> None:
         """Recorta a pessoa e envia ao Incident. Best-effort: a evidência é complemento da revisão,
         nunca decide conformidade, e qualquer falha só deixa de haver imagem."""
         if not (self._send_evidence and incident_id and frame is not None):
             return
         try:
-            from app.evidence_crop import build_evidence
+            from app.evidence_crop import build_evidence, build_findings
             status = {k: v.get("status") for k, v in (ppe_payload or {}).items() if isinstance(v, dict)}
             built = build_evidence(frame, person_result.get("person_bbox"), person_result.get("detections"), status)
             if built is None:
                 return
-            if not self._incident.upload_evidence(incident_id, built[0], built[1]):
+            if not self._incident.upload_evidence(incident_id, built[0], built[1], build_findings(ppe_payload, visibility)):
                 logger.warning("Incident recusou a evidência (incidente=%s)", incident_id)
         except Exception:
             logger.exception("Falha ao enviar evidência (incidente=%s)", incident_id)

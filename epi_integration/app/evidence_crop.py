@@ -13,6 +13,23 @@ MAX_SIDE = 1280        # mesmo limite do Incident Service
 MIN_SIDE = 16
 
 
+def build_findings(ppe_payload: Optional[dict], visibility: Optional[dict] = None) -> list[dict]:
+    """Resumo por EPI para o revisor. PRESENT/MISSING vêm do que o pipeline observou; um EPI sem observação
+    cuja região do corpo está fora do enquadramento é NOT_VISIBLE (não ver != faltar). Sem posição inventada."""
+    regions = {"helmet": "head", "vest": "torso", "gloves": "hands", "boots": "feet"}
+    out = []
+    for ppe, region in regions.items():
+        item = (ppe_payload or {}).get(ppe)
+        status = item.get("status") if isinstance(item, dict) else None
+        if status == "MISSING":
+            out.append({"label": ppe, "status": "MISSING"})
+        elif status in ("DETECTED", "WORN"):
+            out.append({"label": ppe, "status": "PRESENT"})
+        elif status is None and visibility is not None and visibility.get(region) is False:
+            out.append({"label": ppe, "status": "NOT_VISIBLE"})
+    return out
+
+
 def build_evidence(frame: Any, person_bbox, detections, ppe_status: Optional[dict] = None,
                    jpeg_quality: int = 85) -> Optional[tuple[bytes, list[dict]]]:
     """(jpeg, detecções normalizadas) ou None se não houver como recortar."""
@@ -39,7 +56,9 @@ def build_evidence(frame: Any, person_bbox, detections, ppe_status: Optional[dic
     if not ok:
         return None
 
-    out: list[dict] = []
+    px1, py1, px2, py2 = max(x1, cx1), max(y1, cy1), min(x2, cx2), min(y2, cy2)   # pessoa cortada pelo quadro: só a parte dentro do recorte
+    out: list[dict] = [{"label": "person", "bbox": [round((px1 - cx1) / cw, 4), round((py1 - cy1) / ch, 4),
+                                                      round((px2 - px1) / cw, 4), round((py2 - py1) / ch, 4)]}]
     for d in (detections or [])[:20]:
         b = d.get("bbox") or []
         label = d.get("type") or d.get("cls")

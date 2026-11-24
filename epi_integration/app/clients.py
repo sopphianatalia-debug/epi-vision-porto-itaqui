@@ -186,11 +186,12 @@ class IncidentClient(ServiceClient):
         if service_key:
             self._client.headers["X-Service-Key"] = service_key
 
-    def upload_evidence(self, incident_id: str, jpeg: bytes, detections: list[dict]) -> bool:
+    def upload_evidence(self, incident_id: str, jpeg: bytes, detections: list[dict], findings: Optional[list] = None) -> bool:
         """Envia o RECORTE da pessoa. Falha aqui nunca derruba o pipeline (quem chama trata)."""
         import base64
         resp = self._client.post(f"/incidents/{incident_id}/evidence",
-                                 json={"image_base64": base64.b64encode(jpeg).decode("ascii"), "detections": detections})
+                                 json={"image_base64": base64.b64encode(jpeg).decode("ascii"), "detections": detections,
+                                       "findings": findings or []})
         return resp.status_code == 201
 
     def process_evaluation(self, evaluation: dict) -> list[dict]:

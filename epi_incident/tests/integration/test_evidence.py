@@ -134,3 +134,17 @@ def test_supervisor_delete_and_operator_cannot(ev):
     assert client.get(url + "/image", headers=tok("sup", "SUPERVISOR")).status_code == 410
     assert client.get(f"{PREFIX}/incidents/{iid}/evidence-access-log", headers=tok("op", "OPERADOR")).status_code == 403
     assert client.post(f"{PREFIX}/evidence/purge", headers=tok("op", "OPERADOR")).status_code == 403
+
+
+def test_findings_are_stored_validated_and_returned(ev):
+    client, _ = ev
+    iid = _inc(client, "FUNC-FIND")
+    ok = client.post(f"{PREFIX}/incidents/{iid}/evidence", json={"image_base64": b64(png()), "detections": DET,
+                     "findings": [{"label": "helmet", "status": "MISSING"}, {"label": "boots", "status": "NOT_VISIBLE"}]})
+    assert ok.status_code == 201 and ok.json()["findings"][1]["status"] == "NOT_VISIBLE"
+    lst = client.get(f"{PREFIX}/incidents/{iid}/evidence", headers=tok("op", "OPERADOR")).json()
+    assert lst[0]["findings"][0] == {"label": "helmet", "status": "MISSING"}
+    bad = client.post(f"{PREFIX}/incidents/{iid}/evidence", json={"image_base64": b64(png()), "findings": [{"label": "x", "status": "ABSENT"}]})
+    assert bad.status_code == 422
+    old = _up(client, iid)          # sem findings: continua aceito
+    assert old.status_code == 201 and old.json()["findings"] == []

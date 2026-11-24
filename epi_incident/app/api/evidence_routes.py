@@ -20,6 +20,7 @@ router = APIRouter(tags=["evidence"])
 class EvidenceIn(BaseModel):
     image_base64: str = Field(min_length=8, max_length=2_000_000)
     detections: Optional[list[dict]] = None
+    findings: Optional[list[dict]] = None
 
 
 def _incident(svc: IncidentService, incident_id: str):
@@ -61,7 +62,7 @@ def upload(incident_id: str, body: EvidenceIn, svc: IncidentService = Depends(ge
     inc = _incident(svc, incident_id)
     try:
         data = base64.b64decode(body.image_base64, validate=True)
-        meta = ev.add(inc, data, body.detections, svc.now())
+        meta = ev.add(inc, data, body.detections, svc.now(), body.findings)
         return meta.public(ev.expires_at(inc, meta))
     except (binascii.Error, ValueError):
         raise HTTPException(status_code=422, detail="image_base64 inválido.")

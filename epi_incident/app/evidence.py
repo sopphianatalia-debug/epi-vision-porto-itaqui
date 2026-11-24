@@ -101,6 +101,24 @@ def validate_detections(detections) -> list[dict]:
     return out
 
 
+ALLOWED_FINDING_STATUS = {"PRESENT", "MISSING", "NOT_VISIBLE"}
+
+
+def validate_findings(findings) -> list[dict]:
+    """Resumo por EPI para o revisor: PRESENT | MISSING | NOT_VISIBLE (não ver != faltar). Sem posição."""
+    if findings is None:
+        return []
+    if not isinstance(findings, list) or len(findings) > 10:
+        raise InvalidEvidence("findings deve ser uma lista com até 10 itens")
+    out = []
+    for f in findings:
+        if (not isinstance(f, dict) or not isinstance(f.get("label"), str) or not f["label"] or len(f["label"]) > 40
+                or f.get("status") not in ALLOWED_FINDING_STATUS):
+            raise InvalidEvidence("cada finding precisa de 'label' e 'status' (PRESENT, MISSING ou NOT_VISIBLE)")
+        out.append({"label": f["label"], "status": f["status"]})
+    return out
+
+
 @dataclass
 class EvidenceMeta:
     evidence_id: str
@@ -112,12 +130,13 @@ class EvidenceMeta:
     size_bytes: int
     detections: list[dict]
     purged_at: Optional[datetime] = None
+    findings: Optional[list] = None
 
     def public(self, expires_at: Optional[datetime] = None) -> dict:
         return {"evidence_id": self.evidence_id, "incident_id": self.incident_id,
                 "captured_at": self.captured_at.isoformat(), "mime": self.mime,
                 "width": self.width, "height": self.height, "size_bytes": self.size_bytes,
-                "detections": self.detections, "purged": self.purged_at is not None,
+                "detections": self.detections, "findings": self.findings or [], "purged": self.purged_at is not None,
                 "purged_at": self.purged_at.isoformat() if self.purged_at else None,
                 "expires_at": expires_at.isoformat() if (expires_at and not self.purged_at) else None}
 
@@ -132,7 +151,9 @@ class EvidenceStore:
         self._db = sqlite3.connect(db_path or ":memory:", check_same_thread=False)
         self._db.execute("CREATE TABLE IF NOT EXISTS evidence (evidence_id TEXT PRIMARY KEY, incident_id TEXT NOT NULL, "
                          "captured_at TEXT NOT NULL, mime TEXT NOT NULL, width INTEGER, height INTEGER, size_bytes INTEGER, "
-                         "detections TEXT NOT NULL, filename TEXT NOT NULL, purged_at TEXT)")
+                         "detections TEXT NOT NULL, filename TEXT NOT NULL, purged_at TEXT, findings TEXT NOT NULL DEFAULT '[]')")
+        if "findings" not in {r[1] for r in self._db.execute("PRAGMA table_info(evidence)")}:   # banco criado antes desta coluna
+            self._db.execute("ALTER TABLE evidence ADD COLUMN findings TEXT NOT NULL DEFAULT '[]'")
         self._db.execute("CREATE TABLE IF NOT EXISTS evidence_access (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, "
                          "action TEXT NOT NULL, evidence_id TEXT, incident_id TEXT, username TEXT, role TEXT)")
         self._db.commit()
@@ -140,9 +161,9 @@ class EvidenceStore:
     @staticmethod
     def _meta(r) -> EvidenceMeta:
         return EvidenceMeta(r[0], r[1], datetime.fromisoformat(r[2]), r[3], r[4], r[5], r[6], json.loads(r[7]),
-                            datetime.fromisoformat(r[9]) if r[9] else None)
+                            datetime.fromisoformat(r[9]) if r[9] else None, json.loads(r[10] or "[]"))
 
-    _COLS = "evidence_id,incident_id,captured_at,mime,width,height,size_bytes,detections,filename,purged_at"
+    _COLS = "evidence_id,incident_id,captured_at,mime,width,height,size_bytes,detections,filename,purged_at,findings"
 
     def add(self, meta: EvidenceMeta, data: bytes) -> None:
         filename = uuid.uuid4().hex + (".png" if meta.mime == "image/png" else ".jpg")
@@ -150,9 +171,9 @@ class EvidenceStore:
         with os.fdopen(fd, "wb") as f:
             f.write(data)
         with self._lock:
-            self._db.execute(f"INSERT INTO evidence ({self._COLS}) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            self._db.execute(f"INSERT INTO evidence ({self._COLS}) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                              (meta.evidence_id, meta.incident_id, meta.captured_at.isoformat(), meta.mime, meta.width, meta.height,
-                              meta.size_bytes, json.dumps(meta.detections), filename, None))
+                              meta.size_bytes, json.dumps(meta.detections), filename, None, json.dumps(meta.findings or [])))
             self._db.commit()
 
     def get(self, evidence_id: str) -> Optional[EvidenceMeta]:
@@ -235,7 +256,7 @@ class EvidenceService:
         return incident.review_status == "PENDING" or incident.reviewed_by == user["username"]
 
     # ---- operações -----------------------------------------------------------------------------
-    def add(self, incident: Incident, data: bytes, detections, now: datetime) -> EvidenceMeta:
+    def add(self, incident: Incident, data: bytes, detections, now: datetime, findings=None) -> EvidenceMeta:
         store = self._require()
         if len(data) > self._s.evidence_max_bytes:
             raise InvalidEvidence(f"a imagem passa do limite de {self._s.evidence_max_bytes} bytes (envie só o recorte da pessoa)")
@@ -244,7 +265,7 @@ class EvidenceService:
             raise InvalidEvidence(f"o recorte passa de {self._s.evidence_max_side}px de lado; envie só a pessoa, não o quadro inteiro")
         if len(store.for_incident(incident.incident_id)) >= self._s.evidence_max_per_incident:
             raise InvalidEvidence(f"limite de {self._s.evidence_max_per_incident} imagens por incidente")
-        meta = EvidenceMeta(uuid.uuid4().hex, incident.incident_id, now, mime, w, h, len(data), validate_detections(detections))
+        meta = EvidenceMeta(uuid.uuid4().hex, incident.incident_id, now, mime, w, h, len(data), validate_detections(detections), None, validate_findings(findings))
         store.add(meta, data)
         store.log(now, "UPLOAD", meta.evidence_id, incident.incident_id, "service", None)
         return meta
