@@ -157,3 +157,30 @@ async def test_lookup_by_employee_code(client, sm_header):
     assert ok.status_code == 200 and ok.json()["name"] == "Maria Souza" and ok.json()["sector"] == "Pátio"
     missing = await client.get(f"{PREFIX}/employees/by-code/FUNC-999999", headers=sm_header)
     assert missing.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_unreadable_template_does_not_break_recognition_of_others(client, sm_header, monkeypatch):
+    """Modelo guardado com outra chave não pode derrubar o reconhecimento das demais pessoas."""
+    from cryptography.fernet import InvalidToken
+    from app.services import recognition_service as rs
+
+    a = await _create_employee(client, sm_header, name="Ana")
+    b = await _create_employee(client, sm_header, name="Beto")
+    for e in (a, b):
+        r = await client.post(f"{PREFIX}/employees/{e['id']}/biometric-enrollment", headers=sm_header,
+                              json={"frame": _frame(e["employee_code"]), "consent": True})
+        assert r.status_code == 200
+    real = rs.decrypt_embedding
+    calls = {"n": 0}
+
+    def flaky(blob, dim):
+        calls["n"] += 1
+        if calls["n"] % 2 == 1:      # o primeiro modelo de cada carga fica ilegível
+            raise InvalidToken()
+        return real(blob, dim)
+
+    monkeypatch.setattr(rs, "decrypt_embedding", flaky)
+    resp = await client.post(f"{PREFIX}/recognition/match", headers=sm_header,
+                             json={"camera_id": "CAM-07", "frame": _frame(b["employee_code"])})
+    assert resp.status_code == 200, resp.text      # antes: 500

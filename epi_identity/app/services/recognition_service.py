@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 import time
 from typing import Optional, Sequence
 
+from cryptography.fernet import InvalidToken
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +16,8 @@ from app.recognition.types import IdentificationResult
 from app.security.auth import Principal
 from app.security.crypto import decrypt_embedding
 from app.services.audit_service import record_audit
+
+logger = logging.getLogger(__name__)
 
 
 async def load_gallery(session: AsyncSession) -> list[tuple[str, Sequence[float]]]:
@@ -33,7 +37,12 @@ async def load_gallery(session: AsyncSession) -> list[tuple[str, Sequence[float]
     )
     gallery: list[tuple[str, Sequence[float]]] = []
     for code, blob, dim in rows.all():
-        gallery.append((code, decrypt_embedding(blob, dim)))
+        try:
+            gallery.append((code, decrypt_embedding(blob, dim)))
+        except (InvalidToken, ValueError):
+            # Modelo guardado com outra chave (ex.: a chave mudou) ou corrompido. Esse cadastro fica sem
+            # reconhecimento até ser refeito, mas NÃO derruba o reconhecimento das demais pessoas.
+            logger.warning("Modelo facial ilegível para %s; refazer o cadastro biométrico.", code)
     return gallery
 
 

@@ -14,6 +14,12 @@ PY="${PYTHON:-python}"
   umask 077
   printf 'EPI_JWT_SECRET=%s\nINC_SERVICE_KEY=%s\n' "$($PY -c 'import secrets;print(secrets.token_urlsafe(32))')" "$($PY -c 'import secrets;print(secrets.token_urlsafe(24))')" > "$LOCAL/segredos.env"
 }
+# Chave que protege os modelos faciais no Identity. Sem ela fixa, o serviço cria uma nova a cada início e
+# não consegue mais abrir o que gravou antes (erro InvalidToken). Gerada uma vez e guardada só aqui.
+grep -q '^EPI_BIOMETRIC_ENCRYPTION_KEY=' "$LOCAL/segredos.env" || {
+  umask 077
+  printf 'EPI_BIOMETRIC_ENCRYPTION_KEY=%s\n' "$($PY -c 'from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())')" >> "$LOCAL/segredos.env"
+}
 set -a; . "$LOCAL/segredos.env"; set +a
 
 # nome:pasta:porta
