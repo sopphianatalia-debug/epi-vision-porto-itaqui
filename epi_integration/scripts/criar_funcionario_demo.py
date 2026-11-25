@@ -45,6 +45,12 @@ def main() -> int:
             emp = ident.create_employee(a.registration, a.name, a.sector, a.role)
             ident.enroll(employee_id=emp["id"], seed=emp["employee_code"])
             print(f"Criado: {emp['employee_code']} · {emp['name']} · {emp['role_title']} · {emp['sector']}")
+        try:    # câmeras de exemplo, área e EPIs do funcionário no Tracker (a tela e a câmera precisam dele)
+            from start_demo import seed_tracker  # noqa: PLC0415
+            seed_tracker(emp["employee_code"])
+            print("Tracker preparado (câmeras de exemplo, área e EPIs atribuídos).")
+        except Exception as exc:  # noqa: BLE001
+            print(f"AVISO: Tracker não preparado ({exc.__class__.__name__}). Ele está no ar (porta 8010)?")
         if emp["employee_code"] != "FUNC-000001":
             print(f"ATENÇÃO: o código é {emp['employee_code']}. Rode a câmera com EPI_PIPELINE_DEMO_EMPLOYEE_SEED={emp['employee_code']} "
                   f"./scripts/camera_local.sh")

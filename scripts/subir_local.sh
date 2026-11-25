@@ -23,7 +23,7 @@ grep -q '^EPI_BIOMETRIC_ENCRYPTION_KEY=' "$LOCAL/segredos.env" || {
 set -a; . "$LOCAL/segredos.env"; set +a
 
 # nome:pasta:porta
-SERVICES="epi_ppe:epi_ppe:8000 identity:epi_identity:8001 fusion:epi_fusion:8002 rules:epi_rules:8003 incident:epi_incident:8004 auth:epi_auth:8006"
+SERVICES="epi_ppe:epi_ppe:8000 identity:epi_identity:8001 fusion:epi_fusion:8002 rules:epi_rules:8003 incident:epi_incident:8004 auth:epi_auth:8006 tracker:epi_tracker:8010"
 
 launch() { # nome pasta porta  (variáveis de ambiente já exportadas no subshell)
   local name=$1 dir=$2 port=$3
@@ -38,6 +38,7 @@ launch() { # nome pasta porta  (variáveis de ambiente já exportadas no subshel
       identity) export EPI_ENVIRONMENT=test EPI_DATABASE_URL="sqlite+aiosqlite:///$LOCAL/identity.db";;
       incident) export INC_AUTH_MODE=required INC_DB_PATH="$LOCAL/incident.db" INC_EVIDENCE_DIR="$LOCAL/evidencias" INC_IDENTITY_URL="http://127.0.0.1:8001/api/v1";;
       auth)     export AUTH_DB_PATH="$LOCAL/auth.db";;
+      tracker)  export EPI_TRACKER_LOCATION_FRESH_SECONDS=3600 EPI_TRACKER_LOCATION_TTL_SECONDS=7200 EPI_TRACKER_CAMERAS_FILE="$LOCAL/cameras.json";;
     esac
     PYTHONPATH="$ROOT/$dir" nohup "$PY" -m uvicorn app.main:app --port "$port" >"$LOGS/$name.log" 2>&1 &
     echo $! > "$PIDS/$name.pid" )
