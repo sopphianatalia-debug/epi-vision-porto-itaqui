@@ -76,6 +76,25 @@ class IdentityClient(ServiceClient):
         resp.raise_for_status()
         return resp.json()
 
+    def enroll_image(self, employee_id: str, image_base64: str, consent: bool) -> dict:
+        """Cadastro com rosto real (a imagem só trafega; o Identity guarda apenas o template criptografado)."""
+        resp = self._client.post(f"/employees/{employee_id}/biometric-enrollment",
+                                 json={"frame": {"image_base64": image_base64}, "consent": consent})
+        resp.raise_for_status()
+        return resp.json()
+
+    def match_image(self, camera_id: str, image_base64: str, person_track_id: Optional[str] = None) -> dict:
+        body = {"camera_id": camera_id, "frame": {"image_base64": image_base64}}
+        if person_track_id is not None:
+            body["person_track_id"] = person_track_id
+        resp = self._client.post("/recognition/match", json=body)
+        resp.raise_for_status()
+        return resp.json()
+
+    def delete_biometric(self, employee_id: str) -> None:
+        resp = self._client.delete(f"/employees/{employee_id}/biometric")
+        resp.raise_for_status()
+
     def metrics(self) -> dict:
         resp = self._client.get("/recognition/metrics")
         resp.raise_for_status()
