@@ -20,20 +20,24 @@ from app.services.audit_service import record_audit
 logger = logging.getLogger(__name__)
 
 
-async def load_gallery(session: AsyncSession) -> list[tuple[str, Sequence[float]]]:
+async def load_gallery(session: AsyncSession, model_version: Optional[str] = None) -> list[tuple[str, Sequence[float]]]:
     """
     Carrega a galeria de embeddings autorizados (funcionários ATIVOS com
     biometria ATIVA), descriptografando em memória apenas para o matching.
     """
+    conditions = [
+        Employee.status == EmployeeStatus.ACTIVE.value,
+        Employee.is_deleted.is_(False),
+        EmployeeBiometric.is_active.is_(True),
+        Employee.biometric_status == BiometricStatus.ENROLLED.value,
+    ]
+    if model_version is not None:
+        # Vetores de modelos diferentes (ex.: demonstração x InsightFace) não são comparáveis: só o modelo atual entra.
+        conditions.append(EmployeeBiometric.model_version == model_version)
     rows = await session.execute(
         select(Employee.employee_code, EmployeeBiometric.embedding_encrypted, EmployeeBiometric.embedding_dim)
         .join(EmployeeBiometric, EmployeeBiometric.employee_id == Employee.id)
-        .where(
-            Employee.status == EmployeeStatus.ACTIVE.value,
-            Employee.is_deleted.is_(False),
-            EmployeeBiometric.is_active.is_(True),
-            Employee.biometric_status == BiometricStatus.ENROLLED.value,
-        )
+        .where(*conditions)
     )
     gallery: list[tuple[str, Sequence[float]]] = []
     for code, blob, dim in rows.all():
@@ -55,7 +59,7 @@ async def run_match(
     person_track_id: Optional[str] = None,
 ) -> tuple[FaceRecognitionEvent, IdentificationResult]:
     started = time.perf_counter()
-    gallery = await load_gallery(session)
+    gallery = await load_gallery(session, recognition.model_version)
     result = recognition.identify(frame, gallery)
     elapsed_ms = (time.perf_counter() - started) * 1000.0
 

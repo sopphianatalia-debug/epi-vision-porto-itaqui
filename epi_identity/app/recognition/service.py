@@ -13,6 +13,7 @@ from typing import Any, Optional, Sequence
 
 from app.enums import RecognitionStatus
 from app.recognition.base import FaceRecognitionProvider
+from app.recognition.image import InvalidImageError
 from app.recognition.matching import MatchingEngine
 from app.recognition.quality import QualityGate
 from app.recognition.types import (
@@ -57,7 +58,10 @@ class FaceRecognitionService:
 
     # --- cadastro biométrico ---
     def generate_enrollment_embedding(self, frame: Any) -> FaceEmbedding:
-        face = self.best_face(frame)
+        try:
+            face = self.best_face(frame)
+        except InvalidImageError as exc:
+            raise QualityTooLowError([f"invalid_image: {exc}"]) from exc
         if face is None:
             raise QualityTooLowError(["no_face_detected"])
         if not self._quality.passes(face.quality):
@@ -70,7 +74,10 @@ class FaceRecognitionService:
         frame: Any,
         gallery: list[tuple[str, Sequence[float]]],
     ) -> IdentificationResult:
-        face = self.best_face(frame)
+        try:
+            face = self.best_face(frame)
+        except InvalidImageError:
+            return IdentificationResult(status=RecognitionStatus.UNAVAILABLE, requires_review=False)
         if face is None:
             return IdentificationResult(status=RecognitionStatus.UNAVAILABLE, requires_review=False)
 

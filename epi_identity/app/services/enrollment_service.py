@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import utcnow
@@ -78,3 +78,27 @@ async def get_active_biometric(session: AsyncSession, employee_id: str) -> Emplo
             EmployeeBiometric.is_active.is_(True),
         )
     )
+
+
+async def revoke_biometric(session: AsyncSession, employee: Employee, actor: Principal) -> int:
+    """
+    Apaga o modelo facial do funcionário (direito de apagar, LGPD) e retira o consentimento.
+    Remove DE FATO os templates criptografados (não só desativa). Os eventos de reconhecimento já gravados
+    guardam só metadados (código, status, notas) e continuam para auditoria. Idempotente.
+    """
+    result = await session.execute(delete(EmployeeBiometric).where(EmployeeBiometric.employee_id == employee.id))
+    removed = int(result.rowcount or 0)
+    employee.biometric_status = BiometricStatus.REVOKED.value
+    employee.biometric_consent = False
+    employee.biometric_consent_at = None
+    await record_audit(
+        session,
+        AuditAction.BIOMETRIC_REVOKE,
+        actor=actor.subject,
+        actor_role=actor.role.value,
+        resource_type="employee_biometric",
+        resource_id=employee.employee_code,
+        details={"deleted_templates": removed},
+    )
+    await session.commit()
+    return removed

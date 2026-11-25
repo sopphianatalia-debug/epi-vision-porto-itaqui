@@ -72,3 +72,17 @@ async def biometric_status(
         quality_score=biometric.quality_score if biometric else None,
         enrolled_at=biometric.created_at if biometric else None,
     )
+
+
+@router.delete("/{employee_id}/biometric", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke(
+    employee_id: str,
+    session: AsyncSession = Depends(get_session),
+    actor: Principal = Depends(require_permission(Permission.BIOMETRIC_ENROLL)),
+):
+    """Apaga o modelo facial e retira o consentimento. Depois disso a pessoa deixa de ser reconhecida."""
+    try:
+        employee = await employee_service.get_employee(session, employee_id)
+    except employee_service.EmployeeNotFound:
+        raise HTTPException(status_code=404, detail="Funcionário não encontrado.")
+    await enrollment_service.revoke_biometric(session, employee, actor)

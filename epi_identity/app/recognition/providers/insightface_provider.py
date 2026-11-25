@@ -10,15 +10,20 @@ Instalação:
 """
 from __future__ import annotations
 
+import threading
 from typing import Any
 
 from app.recognition.base import FaceRecognitionProvider
+from app.recognition.image import InvalidImageError, decode_image, is_image_payload
 from app.recognition.types import (
     BoundingBox,
     DetectedFace,
     FaceEmbedding,
     FaceQuality,
 )
+
+
+MIN_FACE_PX = 60   # rosto menor que isso (lado menor da caixa) não rende embedding confiável
 
 
 class InsightFaceProvider(FaceRecognitionProvider):
@@ -32,8 +37,12 @@ class InsightFaceProvider(FaceRecognitionProvider):
 
         self._model_name = model_name
         self._embedding_dim = embedding_dim
-        self._app = FaceAnalysis(name=model_name)
+        # CPU de propósito (funciona em qualquer máquina do grupo, inclusive Mac sem CUDA).
+        self._app = FaceAnalysis(name=model_name, providers=["CPUExecutionProvider"])
         self._app.prepare(ctx_id=0, det_size=(640, 640))
+        # Uma só inferência por quadro: detect_faces guarda o resultado e generate_embedding o reaproveita.
+        self._lock = threading.Lock()
+        self._last: tuple[Any, list[Any]] | None = None
 
     @property
     def model_version(self) -> str:
@@ -43,8 +52,23 @@ class InsightFaceProvider(FaceRecognitionProvider):
     def embedding_dim(self) -> int:
         return self._embedding_dim
 
+    def _analyze(self, frame: Any) -> list[Any]:  # pragma: no cover
+        """Roda o modelo uma vez por quadro. `frame` é o payload {"image_base64": ...} ou um ndarray BGR."""
+        with self._lock:
+            if self._last is not None and self._last[0] is frame:
+                return self._last[1]
+            if is_image_payload(frame):
+                image = decode_image(frame)
+            elif hasattr(frame, "shape"):
+                image = frame
+            else:
+                raise InvalidImageError("O quadro não contém uma imagem (esperado image_base64).")
+            faces = list(self._app.get(image))
+            self._last = (frame, faces)     # guarda a referência ao quadro: o `is` não confunde com outro objeto
+            return faces
+
     def detect_faces(self, frame: Any) -> list[DetectedFace]:  # pragma: no cover
-        faces = self._app.get(frame)
+        faces = self._analyze(frame)
         detected: list[DetectedFace] = []
         for f in faces:
             x1, y1, x2, y2 = f.bbox
@@ -56,7 +80,7 @@ class InsightFaceProvider(FaceRecognitionProvider):
         return face.quality
 
     def generate_embedding(self, frame: Any, face: DetectedFace) -> FaceEmbedding:  # pragma: no cover
-        faces = self._app.get(frame)
+        faces = self._analyze(frame)
         target = self._closest(faces, face.bbox)
         vector = tuple(float(x) for x in target.normed_embedding)
         return FaceEmbedding(vector, self.model_version, face.quality.score)
@@ -66,11 +90,16 @@ class InsightFaceProvider(FaceRecognitionProvider):
         det_score = float(getattr(f, "det_score", 1.0))
         pose = getattr(f, "pose", None)
         pose_ok = True if pose is None else max(abs(p) for p in pose) < 30.0
+        x1, y1, x2, y2 = (float(v) for v in f.bbox)
+        big_enough = min(x2 - x1, y2 - y1) >= MIN_FACE_PX
+        reasons = () if big_enough else ("face_too_small",)
         return FaceQuality(
             score=det_score,
             single_face=num_faces == 1,
             pose_ok=pose_ok,
-            face_visible=det_score > 0.5,
+            resolution_ok=big_enough,
+            face_visible=det_score > 0.5 and big_enough,
+            reasons=reasons,
         )
 
     def _closest(self, faces: list[Any], bbox: BoundingBox) -> Any:  # pragma: no cover
