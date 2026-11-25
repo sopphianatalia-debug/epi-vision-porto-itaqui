@@ -10,7 +10,8 @@ from __future__ import annotations
 import base64
 from typing import Any, Optional
 
-UPPER_FRACTION = 0.45        # cabeça e ombros: topo da caixa da pessoa
+UPPER_FRACTION = 0.45        # pessoa em pé: cabeça e ombros = topo da caixa
+HEAD_SHOULDERS_WIDTH_RATIO = 1.1   # em close (caixa larga/baixa) o rosto ocupa mais: altura >= 1,1 x largura
 MAX_SIDE_PX = 640
 MIN_SIDE_PX = 64
 JPEG_QUALITY = 90
@@ -27,7 +28,8 @@ def face_probe_b64(frame: Any, person_bbox) -> Optional[str]:
     y1, y2 = max(0.0, min(y1, y2)), min(float(h), max(y1, y2))
     if x2 <= x1 or y2 <= y1:
         return None
-    y_end = y1 + (y2 - y1) * UPPER_FRACTION
+    height = y2 - y1
+    y_end = y1 + min(height, max(height * UPPER_FRACTION, (x2 - x1) * HEAD_SHOULDERS_WIDTH_RATIO))
     crop = frame[int(y1):int(y_end), int(x1):int(x2)]
     if crop.size == 0 or min(crop.shape[:2]) < MIN_SIDE_PX:
         return None

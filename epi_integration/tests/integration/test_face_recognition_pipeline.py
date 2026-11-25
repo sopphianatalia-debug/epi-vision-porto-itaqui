@@ -35,6 +35,14 @@ def test_probe_none_without_frame():
     assert face_probe_b64(None, [0, 0, 100, 100]) is None
 
 
+def test_probe_closeup_keeps_the_whole_face():
+    import cv2
+    # pessoa em close: caixa 400 larga x 300 alta -> 45% (135 px) cortaria o rosto; usa a caixa inteira
+    img = cv2.imdecode(np.frombuffer(base64.b64decode(face_probe_b64(_frame(), [100, 100, 500, 400])), np.uint8),
+                       cv2.IMREAD_COLOR)
+    assert img.shape[:2] == (300, 400)
+
+
 # ------------------------------------------------------------------ cache com TTL por entrada
 def test_cache_ttl_override_per_entry():
     t = [0.0]
