@@ -73,6 +73,10 @@ def build_pipeline(settings, demo_employee_seed: Optional[str]) -> RealCameraPip
     rules = RulesClient(settings.rules_url)
     incident = IncidentClient(settings.incident_url, service_key=settings.incident_service_key or None)
 
+    face = bool(getattr(settings, "face_recognition", False))
+    if face:
+        demo_employee_seed = None      # reconhecimento facial real ignora a identidade de demonstração
+
     def seed_provider(camera_id: str, track_id: str) -> Optional[str]:
         return demo_employee_seed
 
@@ -89,17 +93,22 @@ def build_pipeline(settings, demo_employee_seed: Optional[str]) -> RealCameraPip
         # Com identidade de demonstração, só UMA pessoa por quadro a recebe.
         single_identity_per_frame=bool(demo_employee_seed),
         send_evidence=settings.send_evidence,
+        face_recognition=face,
+        face_matched_ttl_seconds=settings.face_matched_ttl_seconds,
+        face_retry_seconds=settings.face_retry_seconds,
     )
 
 
-def _label_for(person: PersonPipelineResult, is_demo_identity: bool) -> str:
+def _label_for(person: PersonPipelineResult, is_demo_identity: bool, is_face: bool = False) -> str:
     label = person.display_identity_label
+    if label != "unknown" and is_face:
+        return f"{label} (RECONHECIMENTO FACIAL)"
     if label != "unknown" and is_demo_identity:
         return f"{label} (DEMO IDENTITY)"
     return label
 
 
-def draw_overlay(cv2, frame, results, fps, status_board, is_demo_identity):
+def draw_overlay(cv2, frame, results, fps, status_board, is_demo_identity, is_face=False):
     header_lines = [f"FPS: {fps:.1f}   Pessoas: {len(results)}"]
     header_lines.append("  ".join(f"{name.upper()}: {state}" for name, state in status_board.items()))
     y = 20
@@ -110,7 +119,7 @@ def draw_overlay(cv2, frame, results, fps, status_board, is_demo_identity):
 
     for person in results:
         color = STATUS_COLOR.get(person.overall_status, STATUS_COLOR[None])
-        label = _label_for(person, is_demo_identity)
+        label = _label_for(person, is_demo_identity, is_face)
         lines = [f"TRACK: {person.person_track_id}", f"IDENTITY: {label}"]
         for ppe_type, data in person.ppe.items():
             lines.append(f"{ppe_type.upper()}: {data['status']} {data.get('confidence', 0):.2f}")
@@ -164,12 +173,14 @@ def main() -> None:
     cv2 = _open_cv2()
     settings = get_camera_pipeline_settings()
     camera_id = args.camera_id or settings.camera_id
-    is_demo_identity = bool(settings.demo_employee_seed)
+    is_face = bool(settings.face_recognition)
+    is_demo_identity = bool(settings.demo_employee_seed) and not is_face
 
     pipeline = build_pipeline(settings, settings.demo_employee_seed)
 
     print(f"Camera: {camera_id}")
     print(f"process_every_n_frames: {settings.process_every_n_frames}")
+    print(f"RECONHECIMENTO FACIAL: {'ATIVADO (somente voluntarios cadastrados com consentimento)' if is_face else 'desligado'}")
     print(f"DEMO IDENTITY: {'ativado (' + settings.demo_employee_seed + ')' if is_demo_identity else 'desligado'}")
     print(f"DEMO_SCENARIO: {settings.demo_scenario or '(nenhum - deteccao real)'}")
     print("Pressione 'q' ou ESC na janela para sair (ou Ctrl+C no terminal em modo headless).\n")
@@ -196,7 +207,7 @@ def main() -> None:
             last = now
             fps = 0.9 * fps + 0.1 * (1.0 / dt) if dt > 0 else fps
 
-            annotated = draw_overlay(cv2, raw_frame, results, fps, pipeline.status.snapshot(), is_demo_identity)
+            annotated = draw_overlay(cv2, raw_frame, results, fps, pipeline.status.snapshot(), is_demo_identity, is_face)
 
             if args.save:
                 if writer is None:

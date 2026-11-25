@@ -40,6 +40,13 @@ class CameraPipelineSettings(BaseSettings):
     # vai conseguir MATCHED de verdade, porque o provider mock não deriva
     # identidade do conteúdo da imagem — ver Limitações no README da fase.
     demo_employee_seed: Optional[str] = None
+    # Reconhecimento facial REAL (opt-in; desligado por padrão). Exige Identity com EPI_FACE_PROVIDER=insightface
+    # e funcionários voluntários cadastrados com consentimento. Quando ligado, ignora demo_employee_seed.
+    face_recognition: bool = False
+    # Quanto tempo um MATCHED vale para o mesmo track (evita chamar o modelo em todo quadro) e quanto esperar
+    # antes de tentar de novo quando não identificou (rosto de lado, longe, etc.).
+    face_matched_ttl_seconds: float = Field(default=15.0, ge=0.0)
+    face_retry_seconds: float = Field(default=2.0, ge=0.0)
     # DEMO_SCENARIO (Fase 3.7, seção 6): força um cenário controlado de EPI
     # ausente para poder demonstrar NON_COMPLIANT sem depender de tirar o
     # capacete de verdade na frente da câmera. Vazio = desligado (usa só a

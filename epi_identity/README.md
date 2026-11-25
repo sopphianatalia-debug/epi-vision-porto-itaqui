@@ -157,6 +157,7 @@ DELETE /employees/{id}                      (soft delete)
 
 POST   /employees/{id}/biometric-enrollment
 GET    /employees/{id}/biometric-status
+DELETE /employees/{id}/biometric            (apaga o template, revoga o consentimento; 204, idempotente)
 
 POST   /recognition/match
 GET    /recognition/events
@@ -164,6 +165,21 @@ GET    /recognition/events/{id}
 POST   /recognition/review
 GET    /recognition/metrics
 ```
+
+### Imagem real de rosto (provider `insightface`)
+
+`frame` aceita `{"image_base64": "<JPEG|PNG>"}` (até 2 MB, 1920 px, 4 MP; mínimo 32 px). O tamanho, a assinatura e as
+dimensões são validados antes de decodificar. A imagem fica só em memória: nada vai a disco nem a log; o que persiste
+é o template numérico criptografado. Imagem inválida: 422 no cadastro, `UNAVAILABLE` na identificação. A galeria usa
+apenas templates da versão do modelo atual (cadastro do mock não se mistura com o modelo real). Ligar com
+`EPI_FACE_PROVIDER=insightface` (padrão: `mock`).
+
+**Licença:** os modelos pré-treinados do InsightFace (ex.: buffalo_l) são para pesquisa / uso não comercial. Uso
+comercial exige outro modelo ou licença própria. **Limiares:** os padrões (similaridade 0,55; confiança 0,80) foram
+pensados para o mock. Em testes locais com o modelo real (3 pessoas, poucas amostras) a mesma pessoa deu 0,76–0,88 e
+uma pessoa diferente 0,11; a confiança de 0,80 não é atingível. Valores a validar pelo grupo com mais voluntários
+(proposta: confiança 0,40, via `EPI_CONFIDENCE_THRESHOLD`). **Consentimento:** o termo do script de cadastro é de
+teste e precisa de revisão jurídica/ética do grupo antes de qualquer uso real.
 
 ## Contrato para o Módulo de EPI
 

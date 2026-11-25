@@ -33,6 +33,19 @@ Fique sem capacete por mais de 3 segundos: o incidente abre e o recorte é envia
 ## 4. Ver na tela
 Use o front do repositório `visao-do-porto-evolucao` (`cd frontend && npm install && npm run dev`, depois abra http://localhost:5173), entre com o usuário criado e abra o incidente na fila.
 
+## 4b. Reconhecimento facial real (opcional, só voluntários com consentimento)
+
+Desligado por padrão (a demonstração usa "DEMO IDENTITY"). Para testar com rosto real (InsightFace; 1º uso baixa o modelo):
+
+1. Serviços (terminal 1, venv ativo): `./scripts/subir_local.sh stop`, depois `EPI_FACE_PROVIDER=insightface EPI_CONFIDENCE_THRESHOLD=0.40 ./scripts/subir_local.sh start`
+2. Funcionário (terminal 2, venv ativo): `python epi_integration/scripts/criar_funcionario_demo.py`
+3. Cadastro: `python epi_integration/scripts/cadastrar_voluntario.py` (termo, digitar ACEITO, ESPAÇO captura; a foto não é guardada)
+4. Teste: `python epi_integration/scripts/cadastrar_voluntario.py --testar`
+5. Câmera com reconhecimento: `EPI_PIPELINE_FACE_RECOGNITION=true ./scripts/camera_local.sh` (o rótulo mostra "RECONHECIMENTO FACIAL"; sem rosto reconhecido, a pessoa fica "não identificada", nunca vira outra)
+6. Apagar o rosto: `python epi_integration/scripts/cadastrar_voluntario.py --apagar` (outro voluntário: `--registration DEMO-0002`)
+
+Atenção: com o modo real, a biometria de demonstração é recusada (esperado) e o rosto precisa ser cadastrado no passo 3.
+
 ## 5. Parar
 Ctrl+C no terminal do `start_demo.py`. As imagens de teste ficam em `.local/evidencias/` (apague quando quiser).
 

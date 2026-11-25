@@ -53,14 +53,16 @@ class IdentityCache:
             return None
         return entry
 
-    def put(self, camera_id: str, person_track_id: str, identity_fields: dict) -> CachedIdentity:
+    def put(self, camera_id: str, person_track_id: str, identity_fields: dict,
+            ttl_seconds: Optional[float] = None) -> CachedIdentity:
         now = self._clock()
+        ttl = self._ttl if ttl_seconds is None else timedelta(seconds=ttl_seconds)
         entry = CachedIdentity(
             employee_id=identity_fields["employee_id"],
             identity_status=identity_fields["identity_status"],
             identity_confidence=identity_fields["identity_confidence"],
             cached_at=now,
-            expires_at=now + self._ttl,
+            expires_at=now + ttl,
         )
         self._store[(camera_id, person_track_id)] = entry
         return entry

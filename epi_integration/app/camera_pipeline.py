@@ -173,6 +173,9 @@ class RealCameraPipeline:
         tracker_sync_interval_seconds: float = 2.0,
         single_identity_per_frame: bool = False,
         send_evidence: bool = False,
+        face_recognition: bool = False,
+        face_matched_ttl_seconds: float = 15.0,
+        face_retry_seconds: float = 2.0,
     ) -> None:
         self._vision = vision_client
         self._identity = identity_client
@@ -213,6 +216,10 @@ class RealCameraPipeline:
         self._single_identity = single_identity_per_frame
         # Evidência em imagem: só o recorte da pessoa, ao abrir o incidente. Desligado por padrão.
         self._send_evidence = send_evidence
+        # Reconhecimento facial real (opt-in): manda o recorte do rosto ao Identity; ignora o seed de demonstração.
+        self._face_recognition = face_recognition
+        self._face_matched_ttl = face_matched_ttl_seconds
+        self._face_retry = face_retry_seconds
         self._evidence_pending: dict[str, int] = {}   # incidente -> quadros já tentados (esperando um quadro bom)
         self._evidence_best: dict[str, tuple] = {}    # incidente -> (brilho, recorte) do quadro mais claro até agora
         self._primary_track: Optional[str] = None
@@ -322,7 +329,8 @@ class RealCameraPipeline:
             identity_fields, from_cache = (
                 {"employee_id": None, "identity_status": "UNKNOWN", "identity_confidence": 0.0}, False)
         else:
-            identity_fields, from_cache = self._resolve_identity(camera_id, track_id)
+            identity_fields, from_cache = self._resolve_identity(
+                camera_id, track_id, frame, person_result.get("person_bbox"))
         if identity_fields is None:
             # Identity indisponível (erro) — ainda assim seguimos com a
             # pessoa como não identificada, em vez de travar o frame
@@ -517,11 +525,14 @@ class RealCameraPipeline:
             self.metrics.record_error("tracker")
             logger.exception("Falha ao sincronizar evidência do tracker (camera=%s)", camera_id)
 
-    def _resolve_identity(self, camera_id: str, track_id: str) -> tuple[Optional[dict], bool]:
+    def _resolve_identity(self, camera_id: str, track_id: str, frame: Any = None,
+                          person_bbox=None) -> tuple[Optional[dict], bool]:
         cached = self._identity_cache.get(camera_id, track_id)
         if cached is not None:
             self.metrics.identity_cache_hits += 1
             return cached.to_identity_fields(), True
+        if self._face_recognition:
+            return self._resolve_identity_by_face(camera_id, track_id, frame, person_bbox)
 
         seed = self._identity_seed_provider(camera_id, track_id)
         try:
@@ -549,6 +560,33 @@ class RealCameraPipeline:
             self.status.mark_error("identity")
             self.metrics.record_error("identity")
             logger.exception("Falha ao consultar o Identity (camera=%s track=%s)", camera_id, track_id)
+            return None, False
+
+    def _resolve_identity_by_face(self, camera_id: str, track_id: str, frame: Any,
+                                  person_bbox) -> tuple[Optional[dict], bool]:
+        """Reconhecimento facial real. Não identificado != violação: rosto ausente/ruim vira NOT_IDENTIFIED."""
+        from app.face_probe import face_probe_b64  # noqa: PLC0415
+        not_identified = {"employee_id": None, "identity_status": "NOT_IDENTIFIED", "identity_confidence": 0.0}
+        probe = face_probe_b64(frame, person_bbox)
+        if probe is None:
+            self._identity_cache.put(camera_id, track_id, not_identified, ttl_seconds=self._face_retry)
+            return not_identified, False
+        try:
+            response = self._identity.match_image(camera_id=camera_id, image_base64=probe, person_track_id=track_id)
+            self.status.mark_ok("identity")
+            self.metrics.identity_requests += 1
+            fields = identity_result_to_fusion_identity(response)
+            ttl = self._face_matched_ttl if fields["identity_status"] == "MATCHED" else self._face_retry
+            self._identity_cache.put(camera_id, track_id, fields, ttl_seconds=ttl)
+            if fields["identity_status"] == "MATCHED":
+                _log_event("IDENTITY_MATCHED", camera_id=camera_id, employee_id=fields["employee_id"], source="face")
+            else:
+                _log_event("IDENTITY_UNMATCHED", camera_id=camera_id, status=fields["identity_status"], source="face")
+            return fields, False
+        except Exception:
+            self.status.mark_error("identity")
+            self.metrics.record_error("identity")
+            logger.exception("Falha ao consultar o Identity por rosto (camera=%s track=%s)", camera_id, track_id)
             return None, False
 
 
