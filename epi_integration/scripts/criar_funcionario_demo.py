@@ -8,6 +8,7 @@ Uso:  python scripts/criar_funcionario_demo.py [--name "Sophia (voluntária)"] [
 from __future__ import annotations
 
 import argparse
+import httpx
 import os
 import sys
 from pathlib import Path
@@ -43,7 +44,13 @@ def main() -> int:
             emp = found
         else:
             emp = ident.create_employee(a.registration, a.name, a.sector, a.role)
-            ident.enroll(employee_id=emp["id"], seed=emp["employee_code"])
+            try:
+                ident.enroll(employee_id=emp["id"], seed=emp["employee_code"])
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code != 422:
+                    raise
+                print("Identity em modo de rosto real: a biometria de demonstração foi recusada (esperado). "
+                      "Cadastre o rosto com scripts/cadastrar_voluntario.py.")
             print(f"Criado: {emp['employee_code']} · {emp['name']} · {emp['role_title']} · {emp['sector']}")
         try:    # câmeras de exemplo, área e EPIs do funcionário no Tracker (a tela e a câmera precisam dele)
             from start_demo import seed_tracker  # noqa: PLC0415
