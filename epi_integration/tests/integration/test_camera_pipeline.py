@@ -409,3 +409,29 @@ def test_gloves_not_framed_is_never_a_violation(
     assert "gloves" not in person.ppe                      # omitido: Fusion decide NOT_VISIBLE
     assert person.overall_status in ("INDETERMINATE", "PARTIAL")
     assert person.incident_actions == []
+
+
+# --------------------------------------------------------------------- #
+# Evidência escura: a nova tentativa acontece nos quadros seguintes (UPDATED), e só enquanto estiver pendente.
+# --------------------------------------------------------------------- #
+def test_evidence_retry_runs_on_updated_frames_only_while_pending(cam_vision, cam_identity, cam_fusion, cam_rules, cam_incident):
+    emp = enroll_employee(cam_identity)
+    camera_id = "CAM-EVID-RETRY"
+    pipe = RealCameraPipeline(
+        cam_vision, cam_identity, cam_fusion, cam_rules, cam_incident,
+        process_every_n_frames=1, identity_seed_provider=lambda cam, trk: emp["employee_code"], send_evidence=True,
+    )
+    calls = []
+
+    def fake_attach(incident_id, frame, person_result, ppe_payload, visibility=None):
+        calls.append(incident_id)
+        if len(calls) < 3:
+            pipe._evidence_pending[incident_id] = len(calls)       # ainda escuro: segue pendente
+        else:
+            pipe._evidence_pending.pop(incident_id, None)          # achou um quadro bom: encerra
+
+    pipe._attach_evidence = fake_attach
+    scene = make_scene(camera_id, ("SAFETY_VEST", "GLOVES", "SAFETY_BOOTS"))     # sem capacete
+    actions = [pipe.process_frame(camera_id, scene)[0].incident_actions[0]["action"] for _ in range(6)]
+    assert actions[0] == "CREATED" and set(actions[1:]) == {"UPDATED"}
+    assert len(calls) == 3 and len(set(calls)) == 1      # criação + 2 tentativas; depois para (não insiste a cada quadro)

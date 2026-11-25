@@ -49,12 +49,13 @@ class _Inc:
         if self.boom:
             raise RuntimeError("rede")
         self.calls.append((iid, len(jpeg), dets))
+        self.last_jpeg = jpeg
         return self.ok
 
 
 def _pipe(inc, send=True):
     p = object.__new__(RealCameraPipeline)
-    p._send_evidence, p._incident, p._evidence_pending = send, inc, {}
+    p._send_evidence, p._incident, p._evidence_pending, p._evidence_best = send, inc, {}, {}
     return p
 
 
@@ -116,3 +117,20 @@ def test_dark_frame_is_accepted_after_the_retry_limit_so_there_is_always_some_ev
     pipe._evidence_pending["INC-1"] = EVIDENCE_MAX_RETRIES
     pipe._attach_evidence("INC-1", _dark(), PERSON, {})
     assert len(inc.calls) == 1 and pipe._evidence_pending == {}
+
+
+def test_after_the_limit_the_brightest_frame_seen_is_sent_not_the_last_one():
+    from app.camera_pipeline import EVIDENCE_MAX_RETRIES
+    import cv2
+    inc = _Inc()
+    pipe = _pipe(inc)
+    mid = np.full((480, 640, 3), 30, dtype=np.uint8)       # abaixo de 45, mas o mais claro dos escuros
+    pipe._attach_evidence("INC-1", np.full((480, 640, 3), 10, dtype=np.uint8), PERSON, {})
+    pipe._attach_evidence("INC-1", mid, PERSON, {})
+    pipe._attach_evidence("INC-1", np.full((480, 640, 3), 5, dtype=np.uint8), PERSON, {})
+    pipe._evidence_pending["INC-1"] = EVIDENCE_MAX_RETRIES
+    pipe._attach_evidence("INC-1", np.full((480, 640, 3), 8, dtype=np.uint8), PERSON, {})   # acabou a espera
+    assert len(inc.calls) == 1 and pipe._evidence_best == {}
+    # o enviado é o de brilho 30 (recorte reconstruído do mesmo tamanho; confere pela média do JPEG)
+    img = cv2.imdecode(np.frombuffer(inc.last_jpeg, np.uint8), cv2.IMREAD_COLOR)
+    assert 25 <= img.mean() <= 35, img.mean()

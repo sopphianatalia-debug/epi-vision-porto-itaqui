@@ -214,6 +214,7 @@ class RealCameraPipeline:
         # Evidência em imagem: só o recorte da pessoa, ao abrir o incidente. Desligado por padrão.
         self._send_evidence = send_evidence
         self._evidence_pending: dict[str, int] = {}   # incidente -> quadros já tentados (esperando um quadro bom)
+        self._evidence_best: dict[str, tuple] = {}    # incidente -> (brilho, recorte) do quadro mais claro até agora
         self._primary_track: Optional[str] = None
 
         self.metrics = PipelineMetrics()
@@ -440,22 +441,45 @@ class RealCameraPipeline:
 
     def _attach_evidence(self, incident_id, frame, person_result: dict, ppe_payload: dict, visibility=None) -> None:
         """Recorta a pessoa e envia ao Incident. Best-effort: a evidência é complemento da revisão,
-        nunca decide conformidade, e qualquer falha só deixa de haver imagem."""
+        nunca decide conformidade, e qualquer falha só deixa de haver imagem.
+
+        Quadro escuro (webcam ainda ajustando a luz) não vira prova: espera um quadro com luz nos próximos
+        quadros e, se nenhum aparecer no limite, envia o MAIS CLARO que viu (melhor um escuro que nenhum)."""
         if not (self._send_evidence and incident_id and frame is not None):
             return
         try:
             from app.evidence_crop import MIN_BRIGHTNESS, build_evidence, build_findings, person_brightness
-            tries = self._evidence_pending.get(incident_id, 0)
-            bright = person_brightness(frame, person_result.get("person_bbox"))
-            if bright is not None and bright < MIN_BRIGHTNESS and tries < EVIDENCE_MAX_RETRIES:
-                self._evidence_pending[incident_id] = tries + 1      # escuro demais: espera um quadro melhor
-                return
-            self._evidence_pending.pop(incident_id, None)           # bom (ou acabou a paciência: melhor um quadro escuro que nenhum)
+            bbox = person_result.get("person_bbox")
             status = {k: v.get("status") for k, v in (ppe_payload or {}).items() if isinstance(v, dict)}
-            built = build_evidence(frame, person_result.get("person_bbox"), person_result.get("detections"), status)
+            tries = self._evidence_pending.get(incident_id, 0)
+            bright = person_brightness(frame, bbox)
+            dark = bright is not None and bright < MIN_BRIGHTNESS
+
+            if dark and tries < EVIDENCE_MAX_RETRIES:
+                if tries == 0:
+                    logger.warning("Evidência adiada (incidente=%s): quadro escuro (brilho %.0f < %d); aguardando luz.",
+                                   incident_id, bright, MIN_BRIGHTNESS)
+                self._evidence_pending[incident_id] = tries + 1
+                best = self._evidence_best.get(incident_id)
+                if best is None or bright > best[0]:                 # guarda o mais claro visto até agora
+                    cand = build_evidence(frame, bbox, person_result.get("detections"), status)
+                    if cand is not None:
+                        self._evidence_best[incident_id] = (bright, cand)
+                return
+
+            waited = self._evidence_pending.pop(incident_id, 0)
+            best = self._evidence_best.pop(incident_id, None)
+            built = build_evidence(frame, bbox, person_result.get("detections"), status)
+            sent_bright = bright
+            if dark and best is not None and (bright is None or best[0] > bright):
+                built, sent_bright = best[1], best[0]                 # o melhor que houve na espera
             if built is None:
                 return
-            if not self._incident.upload_evidence(incident_id, built[0], built[1], build_findings(ppe_payload, visibility)):
+            if self._incident.upload_evidence(incident_id, built[0], built[1], build_findings(ppe_payload, visibility)):
+                if waited:
+                    logger.warning("Evidência enviada (incidente=%s) após %d quadros de espera; brilho %s.",
+                                   incident_id, waited, "?" if sent_bright is None else f"{sent_bright:.0f}")
+            else:
                 logger.warning("Incident recusou a evidência (incidente=%s)", incident_id)
         except Exception:
             logger.exception("Falha ao enviar evidência (incidente=%s)", incident_id)
