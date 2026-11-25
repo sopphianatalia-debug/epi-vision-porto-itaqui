@@ -13,6 +13,23 @@ MAX_SIDE = 1280        # mesmo limite do Incident Service
 MIN_SIDE = 16
 
 
+MIN_BRIGHTNESS = 45    # média de cinza (0..255) da pessoa abaixo da qual o quadro é escuro demais para servir de prova
+
+
+def person_brightness(frame: Any, person_bbox) -> Optional[float]:
+    """Brilho médio (0..255) da região da pessoa; None se não der para medir. Serve para não guardar como
+    evidência o quadro escuro de uma webcam que ainda está ajustando a exposição."""
+    shape = getattr(frame, "shape", None)
+    if shape is None or len(shape) < 2 or not person_bbox or len(person_bbox) != 4:
+        return None
+    fh, fw = int(shape[0]), int(shape[1])
+    x1, y1, x2, y2 = (int(max(0, v)) for v in person_bbox)
+    x2, y2 = min(fw, x2), min(fh, y2)
+    if x2 - x1 < MIN_SIDE or y2 - y1 < MIN_SIDE:
+        return None
+    return float(frame[y1:y2, x1:x2].mean())
+
+
 def build_findings(ppe_payload: Optional[dict], visibility: Optional[dict] = None) -> list[dict]:
     """Resumo por EPI para o revisor. PRESENT/MISSING vêm do que o pipeline observou; um EPI sem observação
     cuja região do corpo está fora do enquadramento é NOT_VISIBLE (não ver != faltar). Sem posição inventada."""

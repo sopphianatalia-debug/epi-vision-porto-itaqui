@@ -54,7 +54,7 @@ class _Inc:
 
 def _pipe(inc, send=True):
     p = object.__new__(RealCameraPipeline)
-    p._send_evidence, p._incident = send, inc
+    p._send_evidence, p._incident, p._evidence_pending = send, inc, {}
     return p
 
 
@@ -91,3 +91,28 @@ def test_attach_sends_findings():
     inc.upload_evidence = lambda iid, jpeg, dets, findings=None: inc.calls.append((iid, findings)) or True
     _pipe(inc)._attach_evidence("INC-9", _frame(), PERSON, {"helmet": {"status": "MISSING"}}, {"head": True})
     assert inc.calls[0][1] == [{"label": "helmet", "status": "MISSING"}]
+
+
+def _dark():
+    return np.full((480, 640, 3), 15, dtype=np.uint8)
+
+
+def test_dark_frame_is_not_used_as_evidence_and_a_good_one_replaces_it():
+    """Webcam ainda ajustando a luz: o quadro escuro não vira prova; o próximo quadro bom, sim."""
+    inc, pipe = _Inc(), None
+    pipe = _pipe(inc)
+    pipe._attach_evidence("INC-1", _dark(), PERSON, {})
+    assert inc.calls == [] and pipe._evidence_pending == {"INC-1": 1}      # esperando
+    pipe._attach_evidence("INC-1", _dark(), PERSON, {})
+    assert inc.calls == [] and pipe._evidence_pending == {"INC-1": 2}
+    pipe._attach_evidence("INC-1", _frame(), PERSON, {})                    # quadro com luz
+    assert len(inc.calls) == 1 and pipe._evidence_pending == {}
+
+
+def test_dark_frame_is_accepted_after_the_retry_limit_so_there_is_always_some_evidence():
+    from app.camera_pipeline import EVIDENCE_MAX_RETRIES
+    inc = _Inc()
+    pipe = _pipe(inc)
+    pipe._evidence_pending["INC-1"] = EVIDENCE_MAX_RETRIES
+    pipe._attach_evidence("INC-1", _dark(), PERSON, {})
+    assert len(inc.calls) == 1 and pipe._evidence_pending == {}

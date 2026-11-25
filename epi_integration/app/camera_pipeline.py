@@ -45,6 +45,9 @@ from app.observation_builder import build_fusion_ppe, regions_cut_by_frame
 logger = logging.getLogger("epi_pipeline")
 
 
+EVIDENCE_MAX_RETRIES = 90   # quadros (~6 s) esperando uma imagem com luz suficiente antes de aceitar a que houver
+
+
 @dataclass
 class PipelineMetrics:
     """Seção 28 do pedido. Métricas próprias desta camada — não confundir
@@ -210,6 +213,7 @@ class RealCameraPipeline:
         self._single_identity = single_identity_per_frame
         # Evidência em imagem: só o recorte da pessoa, ao abrir o incidente. Desligado por padrão.
         self._send_evidence = send_evidence
+        self._evidence_pending: dict[str, int] = {}   # incidente -> quadros já tentados (esperando um quadro bom)
         self._primary_track: Optional[str] = None
 
         self.metrics = PipelineMetrics()
@@ -412,6 +416,9 @@ class RealCameraPipeline:
                 if action == "CREATED":
                     self.metrics.incidents_created += 1
                     self._attach_evidence(incident.get("incident_id"), frame, person_result, ppe_payload, visibility)
+                elif action == "UPDATED" and incident.get("incident_id") in self._evidence_pending:
+                    # o primeiro quadro estava escuro/sem ajuste: tenta de novo nos próximos, até um bom (ou o limite)
+                    self._attach_evidence(incident.get("incident_id"), frame, person_result, ppe_payload, visibility)
                     _log_event("INCIDENT_CREATED", camera_id=camera_id, employee_id=employee_id,
                                incident_id=incident.get("incident_id"), rule_id=incident.get("rule_id"),
                                ppe_type=incident.get("ppe_type"))
@@ -437,7 +444,13 @@ class RealCameraPipeline:
         if not (self._send_evidence and incident_id and frame is not None):
             return
         try:
-            from app.evidence_crop import build_evidence, build_findings
+            from app.evidence_crop import MIN_BRIGHTNESS, build_evidence, build_findings, person_brightness
+            tries = self._evidence_pending.get(incident_id, 0)
+            bright = person_brightness(frame, person_result.get("person_bbox"))
+            if bright is not None and bright < MIN_BRIGHTNESS and tries < EVIDENCE_MAX_RETRIES:
+                self._evidence_pending[incident_id] = tries + 1      # escuro demais: espera um quadro melhor
+                return
+            self._evidence_pending.pop(incident_id, None)           # bom (ou acabou a paciência: melhor um quadro escuro que nenhum)
             status = {k: v.get("status") for k, v in (ppe_payload or {}).items() if isinstance(v, dict)}
             built = build_evidence(frame, person_result.get("person_bbox"), person_result.get("detections"), status)
             if built is None:
