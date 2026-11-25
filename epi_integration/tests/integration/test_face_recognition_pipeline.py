@@ -23,7 +23,7 @@ def test_probe_is_jpeg_of_upper_part_only():
     assert data[:3] == b"\xff\xd8\xff"
     import cv2
     img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
-    assert img.shape[1] == 200 and abs(img.shape[0] - 180) <= 1      # largura da pessoa, 45% da altura
+    assert img.shape[1] == 200 and abs(img.shape[0] - 220) <= 1      # max(45% da altura, 1,1 x largura)
 
 
 @pytest.mark.parametrize("bbox", [None, [1, 2, 3], [0, 0, 40, 40], [700, 10, 800, 400]])
