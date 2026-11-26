@@ -37,12 +37,22 @@ Use o front do repositório `visao-do-porto-evolucao` (`cd frontend && npm insta
 
 Desligado por padrão (a demonstração usa "DEMO IDENTITY"). Para testar com rosto real (InsightFace; 1º uso baixa o modelo):
 
-1. Serviços (terminal 1, venv ativo): `./scripts/subir_local.sh stop`, depois `EPI_FACE_PROVIDER=insightface EPI_CONFIDENCE_THRESHOLD=0.40 ./scripts/subir_local.sh start`
+0. Em TODO terminal novo: `cd ~/epi-vision-porto-itaqui && source .venv/bin/activate` (o prompt deve mostrar `(.venv)`).
+1. Serviços (terminal 1): `./scripts/subir_local.sh stop`, depois, em uma linha:
+   `FUS_IDENTITY_CONFIDENCE_THRESHOLD=0.40 EPI_CONFIDENCE_THRESHOLD=0.40 EPI_FACE_PROVIDER=insightface PPE_DETECTOR_PROVIDER=yolo PPE_DETECTOR_MODEL_PATH="<caminho do best.pt>" ./scripts/subir_local.sh start`
+   (sem o detector `yolo` a câmera dá `VISION: ERROR`; se algum serviço sair de antes, o `stop` evita configuração antiga)
 2. Funcionário (terminal 2, venv ativo): `python epi_integration/scripts/criar_funcionario_demo.py`
 3. Cadastro: `python epi_integration/scripts/cadastrar_voluntario.py` (termo, digitar ACEITO, ESPAÇO captura; a foto não é guardada)
 4. Teste: `python epi_integration/scripts/cadastrar_voluntario.py --testar`
 5. Câmera com reconhecimento: `EPI_PIPELINE_FACE_RECOGNITION=true ./scripts/camera_local.sh` (o rótulo mostra "RECONHECIMENTO FACIAL"; sem rosto reconhecido, a pessoa fica "não identificada", nunca vira outra)
 6. Apagar o rosto: `python epi_integration/scripts/cadastrar_voluntario.py --apagar` (outro voluntário: `--registration DEMO-0002`)
+
+**Calibração (decisão do grupo):** a confiança do modelo real fica em ~0,45–0,75 para a mesma pessoa (similaridade 0,76–0,88),
+e os padrões do código (0,80) foram feitos para o mock. Há DOIS limiares: `EPI_CONFIDENCE_THRESHOLD` (Identity, MATCHED) e
+`FUS_IDENTITY_CONFIDENCE_THRESHOLD` (Fusion, atribuir o EPI à pessoa). Abaixo do limiar do Fusion o resultado é
+`INDETERMINATE` e nenhum incidente abre (comportamento conservador). Os 0,40 acima são só para teste local; os valores finais
+dependem de mais voluntários e condições (luz, distância, capacete/óculos). Validado em teste local com 2 voluntários: cadastro,
+reconhecimento sem confusão, incidente aberto com nome (supervisor) e só código (operador).
 
 Atenção: com o modo real, a biometria de demonstração é recusada (esperado) e o rosto precisa ser cadastrado no passo 3.
 

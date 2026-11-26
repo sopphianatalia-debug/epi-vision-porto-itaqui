@@ -178,7 +178,7 @@ apenas templates da versão do modelo atual (cadastro do mock não se mistura co
 comercial exige outro modelo ou licença própria. **Limiares:** os padrões (similaridade 0,55; confiança 0,80) foram
 pensados para o mock. Em testes locais com o modelo real (3 pessoas, poucas amostras) a mesma pessoa deu 0,76–0,88 e
 uma pessoa diferente 0,11; a confiança de 0,80 não é atingível. Valores a validar pelo grupo com mais voluntários
-(proposta: confiança 0,40, via `EPI_CONFIDENCE_THRESHOLD`). **Consentimento:** o termo do script de cadastro é de
+(proposta: confiança 0,40, via `EPI_CONFIDENCE_THRESHOLD`; o Fusion tem outro limiar equivalente, `FUS_IDENTITY_CONFIDENCE_THRESHOLD`, que também precisa ser calibrado). **Consentimento:** o termo do script de cadastro é de
 teste e precisa de revisão jurídica/ética do grupo antes de qualquer uso real.
 
 ## Contrato para o Módulo de EPI
